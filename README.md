@@ -1,1 +1,1 @@
-# my-test-package
+# supabase-swr-entities
