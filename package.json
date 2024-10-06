@@ -1,0 +1,22 @@
+{
+  "name": "@leakeddave/my-test-package",
+  "homepage": "https://github.com/LeakedDave/my-test-package",
+  "version": "1.0.5",
+  "description": "",
+  "module": "src/index",
+  "types": "dist/index",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "npx tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [],
+  "author": "LeakedDave",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.6.2"
+  }
+}
