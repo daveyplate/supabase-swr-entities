@@ -109,7 +109,7 @@ export const useEntities = (table, params = null, swrConfig = null) => {
         mutateEntities(entities.map(e => e.id == entity.id ? newEntity : e), false)
 
         // Update the entity via API
-        const response = await updateEntity(table, entity, fields, params)
+        const response = await updateEntity(table, entity, fields)
         if (response.error) mutateEntities()
 
         return response
@@ -120,7 +120,7 @@ export const useEntities = (table, params = null, swrConfig = null) => {
         mutateEntities(entities.filter(e => e.id != id), false)
 
         // Delete the entity via API
-        const response = await deleteEntity(table, id, params)
+        const response = await deleteEntity(table, id)
         if (response.error) mutateEntities()
 
         return response
