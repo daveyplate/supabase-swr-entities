@@ -22,17 +22,25 @@
   "author": "LeakedDave",
   "license": "ISC",
   "devDependencies": {
-    "@supabase/supabase-js": "^2.45.4",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/uuid": "^10.0.0",
     "husky": "^9.1.6",
     "typescript": "^5.6.2"
   },
+  "peerDependenciesDev": {
+    "@supabase/auth-helpers-react": "^0.5.0",
+    "@supabase/postgrest-js": "^1.16.2",
+    "@supabase/supabase-js": "^2.45.4",
+    "react": "file:../Ink-Wizard/node_modules/react",
+    "react-dom": "^18.3.1",
+    "swr": "file:../Ink-Wizard/node_modules/swr"
+  },
   "peerDependencies": {
+    "@supabase/auth-helpers-react": "^0.5.0",
+    "@supabase/postgrest-js": "^1.16.2",
+    "@supabase/supabase-js": "^2.45.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@supabase/auth-helpers-react": "^0.5.0",
-    "use-sync-external-store": "^1.2.2",
     "swr": "^2.2.5"
   },
   "dependencies": {

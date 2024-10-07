@@ -29,7 +29,7 @@ export async function entityRoute({ supabase, supabaseAdmin, entitySchemas, meth
     delete params.entity_id
 
     // Authenticate the user
-    if (entitySchema.authenticate) {
+    if (entitySchema.authenticate || ((table == 'users' || table == 'profiles') && entity_id == 'me')) {
         // Check for Bearer access token
         const authToken = headers?.authorization?.split('Bearer ')[1]
 
