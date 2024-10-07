@@ -351,7 +351,8 @@ export const postAPI = async (session, path, params) => {
     return await fetch(url, {
         method: 'POST',
         headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
         } : {},
         body: JSON.stringify(params)
     })
@@ -371,7 +372,8 @@ export const patchAPI = async (session, path, params) => {
     return await fetch(url, {
         method: 'PATCH',
         headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
         } : {},
         body: JSON.stringify(params)
     })
@@ -390,7 +392,8 @@ export const deleteAPI = async (session, path) => {
     return await fetch(url, {
         method: 'DELETE',
         headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
         } : {}
     })
 }
