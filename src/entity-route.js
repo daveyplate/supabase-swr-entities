@@ -31,7 +31,7 @@ export async function entityRoute({ supabase, supabaseAdmin, entitySchemas, meth
     // Authenticate the user
     if (entitySchema.authenticate) {
         // Check for Bearer access token
-        const authToken = headers.authorization?.split('Bearer ')[1]
+        const authToken = headers?.authorization?.split('Bearer ')[1]
 
         // Check api_keys for a user entry
         if (authToken?.startsWith('sk-')) {
