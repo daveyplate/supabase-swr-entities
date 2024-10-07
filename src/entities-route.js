@@ -57,7 +57,6 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
 
     // Build query
     if (method == 'GET') {
-        console.log("GET!!!")
         const { entities, count, limit, offset, error } = await getEntities(supabaseAdmin, entitySchemas, table, params)
         if (error) return { status: 500, body: { error } }
 
