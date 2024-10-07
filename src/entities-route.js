@@ -37,6 +37,9 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
             const accessToken = session?.access_token || headers.authorization.split(' ')[1]
             const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
             user.id = user.sub
+
+            params.user_id = user.id
+            body.user_id = user.id
         } catch {
             return {
                 status: 401,
@@ -45,9 +48,6 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
                 }
             }
         }
-
-        params.user_id = user.id
-        body.user_id = user.id
     }
 
     // Build query
