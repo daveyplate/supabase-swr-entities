@@ -31,25 +31,52 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
 
     // Authenticate the user
     if (entitySchema.authenticate) {
-        const { data: { session } } = await supabase.auth.getSession()
+        // Check for Bearer access token
+        const authToken = headers.authorization?.split('Bearer ')[1]
 
-        try {
-            const accessToken = session?.access_token || headers.authorization.split(' ')[1]
-            const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
-            user.id = user.sub
+        // Check api_keys for a user entry
+        if (authToken?.startsWith('sk-')) {
+            const { data: { user_id } } = await supabaseAdmin
+                .from('api_keys')
+                .select('user_id')
+                .eq('api_key', authToken)
+                .single()
 
-            params.user_id = user.id
+            if (!user_id) {
+                return {
+                    status: 401,
+                    body: {
+                        error: { message: 'Unauthorized' }
+                    }
+                }
+            }
+
+            params.user_id = user_id
 
             if (body) {
-                body.user_id = user.id
+                body.user_id = user_id
             }
-        } catch (error) {
-            console.error(error)
+        } else {
+            const { data: { session } } = await supabase.auth.getSession()
 
-            return {
-                status: 401,
-                body: {
-                    error: { message: 'Unauthorized' }
+            try {
+                const accessToken = session?.access_token || authToken
+                const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
+                user.id = user.sub
+
+                params.user_id = user.id
+
+                if (body) {
+                    body.user_id = user.id
+                }
+            } catch (error) {
+                console.error(error)
+
+                return {
+                    status: 401,
+                    body: {
+                        error: { message: 'Unauthorized' }
+                    }
                 }
             }
         }

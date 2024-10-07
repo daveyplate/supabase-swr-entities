@@ -29,25 +29,53 @@ export async function entityRoute({ supabase, supabaseAdmin, entitySchemas, meth
     delete params.entity_id
 
     // Authenticate the user
-    if (entitySchema.authenticate || ((table == 'users' || table == 'profiles') && entity_id == 'me')) {
-        const { data: { session } } = await supabase.auth.getSession()
+    if (entitySchema.authenticate) {
+        // Check for Bearer access token
+        const authToken = headers.authorization?.split('Bearer ')[1]
 
-        try {
-            const accessToken = session?.access_token || headers.authorization.split(' ')[1]
-            const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
-            user.id = user.sub
+        // Check api_keys for a user entry
+        if (authToken?.startsWith('sk-')) {
+            const { data: { user_id } } = await supabaseAdmin
+                .from('api_keys')
+                .select('user_id')
+                .eq('api_key', authToken)
+                .single()
+
+            if (!user_id) {
+                return {
+                    status: 401,
+                    body: {
+                        error: { message: 'Unauthorized' }
+                    }
+                }
+            }
 
             if (table == 'users' || table == 'profiles') {
-                params.id = user.id
+                params.id = user_id
             } else {
-                params.user_id = user.id
+                params.user_id = user_id
             }
-        } catch (error) {
-            console.error(error)
-            return {
-                status: 401,
-                body: {
-                    error: { message: 'Unauthorized' }
+        } else {
+            const { data: { session } } = await supabase.auth.getSession()
+
+            try {
+                const accessToken = session?.access_token || authToken
+                const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
+                user.id = user.sub
+
+                if (table == 'users' || table == 'profiles') {
+                    params.id = user.id
+                } else {
+                    params.user_id = user.id
+                }
+            } catch (error) {
+                console.error(error)
+
+                return {
+                    status: 401,
+                    body: {
+                        error: { message: 'Unauthorized' }
+                    }
                 }
             }
         }
