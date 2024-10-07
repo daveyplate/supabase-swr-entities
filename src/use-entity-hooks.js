@@ -353,7 +353,7 @@ export const postAPI = async (session, path, params) => {
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
-        } : {},
+        } : { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
     })
 }
@@ -374,7 +374,7 @@ export const patchAPI = async (session, path, params) => {
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
-        } : {},
+        } : { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
     })
 }
@@ -394,7 +394,7 @@ export const deleteAPI = async (session, path) => {
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
-        } : {}
+        } : { 'Content-Type': 'application/json' }
     })
 }
 
