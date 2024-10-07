@@ -43,7 +43,9 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
             if (body) {
                 body.user_id = user.id
             }
-        } catch {
+        } catch (error) {
+            console.error(error)
+
             return {
                 status: 401,
                 body: {
