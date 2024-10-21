@@ -157,10 +157,12 @@ export const useCreateEntity = () => {
         const response = await postAPI(session, path, newEntity)
         const { data, error } = response
 
-        // Log and toast any errors
+        // Log and return any errors
         if (error) {
             console.error(error)
-            toast("Error creating object", { color: "danger" })
+            mutate(mutatePath, null, false)
+
+            return { error }
         }
 
         // Mutate the entity with the response data
@@ -168,7 +170,7 @@ export const useCreateEntity = () => {
             newEntity = response.data
             const mutatePath = apiPath(table, newEntity.id, params)
 
-            mutate(mutatePath, entity, false)
+            mutate(mutatePath, newEntity, false)
         }
 
         // Return the result
@@ -198,11 +200,12 @@ export const useUpdateEntity = () => {
         const response = await patchAPI(session, path, fields)
         const { data, error } = response
 
-        // Log and toast any errors
+        // Log and return any errors
         if (error) {
             console.error(error)
-            toast("Error updating", { color: "danger" })
-            mutate(path)
+            mutate(path, entity, false)
+
+            return { error }
         }
 
         // Mutate the entity with the response data
@@ -231,10 +234,11 @@ export const useDeleteEntity = () => {
         const response = await deleteAPI(session, path)
         const { error } = response
 
-        // Log and toast any errors
+        // Log and return any errors
         if (error) {
             console.error(error)
-            toast("Error deleting object", { color: "danger" })
+            mutate(path)
+            return { error }
         }
 
         return response
@@ -253,10 +257,10 @@ export const useUpdateEntities = () => {
         const response = await patchAPI(session, path, fields)
         const { error } = response
 
-        // Log and toast any errors
+        // Log and return any errors
         if (error) {
             console.error(error)
-            toast("Error updating objects", { color: "danger" })
+            return { error }
         }
 
         return response
@@ -275,10 +279,10 @@ export const useDeleteEntities = () => {
         const response = await deleteAPI(session, path)
         const { error } = response
 
-        // Log and toast any errors
+        // Log and return any errors
         if (error) {
             console.error(error)
-            toast("Error deleting object", { color: "danger" })
+            return { error }
         }
 
         return response
