@@ -20,14 +20,7 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
     const path = apiPath(table, id, params)
     const swrResponse = useCache(path, swrConfig)
     const { data } = swrResponse
-
-    let entity
-
-    if (id) {
-        entity = data
-    } else {
-        entity = data?.data?.[0]
-    }
+    const entity = data || data?.data?.[0]
 
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -41,7 +34,8 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
         return mutate(path, entity, opts)
     }
 
-    const update = async (entity, fields) => {
+    const update = async (fields) => {
+        if (!entity) return { error: new Error("Entity not found") }
         return await updateEntity(table, entity, fields, params)
     }
 
