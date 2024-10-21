@@ -3,15 +3,55 @@ import { useSession } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import { v4 } from "uuid"
 
+/** 
+ * Hook for clearing cache 
+ * @returns {() => void} The function to clear the cache
+ */
+export function useClearCache() {
+    const { cache } = useSWRConfig()
+
+    const clearCache = () => {
+        for (let key of cache.keys()) cache.delete(key)
+    }
+
+    return clearCache
+}
+
 /**
  * Wraps useSWR with enabled state 
  * @param {string} query - The query to fetch
  * @param {object} config - The options for the fetch
  * @returns {import("swr").SWRResponse} - The SWR response
  */
-function useCache(query, config) {
+export function useCache(query, config) {
+    const session = useSession()
     const { provider } = useSWRConfig()
-    const swr = useSWR(provider ? query : null, config)
+
+    const fetcher = async (url) => {
+        const headers = {}
+        let basePath = ""
+
+        // Use base URL for export
+        if (isExport()) {
+            // Pass session access token
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+
+            if (!url.startsWith("http")) {
+                basePath = process.env.NEXT_PUBLIC_BASE_URL
+            }
+        }
+
+        const res = await fetch(basePath + url, { headers })
+        if (res.ok) {
+            return res.json()
+        } else {
+            throw new Error(res.statusText)
+        }
+    }
+
+    const swr = useSWR(provider ? query : null, { fetcher, ...config })
 
     return { ...swr, isLoading: swr.isLoading || !provider }
 }
