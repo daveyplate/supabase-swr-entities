@@ -35,10 +35,10 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
 
     const mutateEntity = (entity, opts) => {
         if (entity == undefined) {
-            mutate(path)
+            return mutate(path)
         }
 
-        mutate(path, entity, opts)
+        return mutate(path, entity, opts)
     }
 
     const update = async (entity, fields) => {
@@ -185,11 +185,12 @@ export const useUpdateEntity = () => {
 
     const updateEntity = async (table, entity, fields, params) => {
         // Only allow users to update "me" entity
-        if (table == "users") {
-            entity.id = "me"
+        let entityId = entity.id
+        if (table == "users" || table == "profiles") {
+            entityId = "me"
         }
 
-        let path = apiPath(table, entity.id, params)
+        let path = apiPath(table, entityId, params)
         let newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the cache
