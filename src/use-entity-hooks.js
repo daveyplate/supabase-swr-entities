@@ -154,8 +154,7 @@ export const useCreateEntity = () => {
 
         // Create the entity via API
         const path = apiPath(table, null, params)
-        const response = await postAPI(session, path, newEntity)
-        const { data, error } = response
+        const { error, ...response } = await postAPI(session, path, newEntity)
 
         // Log and return any errors
         if (error) {
@@ -166,15 +165,15 @@ export const useCreateEntity = () => {
         }
 
         // Mutate the entity with the response data
-        if (data?.id) {
-            newEntity = response.data
+        if (response.id) {
+            newEntity = response
             const mutatePath = apiPath(table, newEntity.id, params)
 
             mutate(mutatePath, newEntity, false)
         }
 
         // Return the result
-        return { ...response, entity: newEntity }
+        return { entity: newEntity }
     }
 
     return createEntity
@@ -197,8 +196,7 @@ export const useUpdateEntity = () => {
         mutate(path, newEntity, false)
 
         // Update the entity via API
-        const response = await patchAPI(session, path, fields)
-        const { data, error } = response
+        const { error, ...response } = await patchAPI(session, path, fields)
 
         // Log and return any errors
         if (error) {
@@ -209,12 +207,12 @@ export const useUpdateEntity = () => {
         }
 
         // Mutate the entity with the response data
-        if (data?.id) {
-            newEntity = response.data
+        if (response.id) {
+            newEntity = response
             mutate(path, newEntity, false)
         }
 
-        return { ...response, entity: newEntity }
+        return { entity: newEntity }
     }
 
     return updateEntity
@@ -231,8 +229,7 @@ export const useDeleteEntity = () => {
         mutate(path, null, false)
 
         // Delete the entity via API
-        const response = await deleteAPI(session, path)
-        const { error } = response
+        const { error, ...response } = await deleteAPI(session, path)
 
         // Log and return any errors
         if (error) {
@@ -254,8 +251,7 @@ export const useUpdateEntities = () => {
         const path = apiPath(table, null, params)
 
         // Update the entities via API
-        const response = await patchAPI(session, path, fields)
-        const { error } = response
+        const { error, ...response } = await patchAPI(session, path, fields)
 
         // Log and return any errors
         if (error) {
@@ -276,8 +272,7 @@ export const useDeleteEntities = () => {
         const path = apiPath(table, null, params)
 
         // Delete the entity via API
-        const response = await deleteAPI(session, path)
-        const { error } = response
+        const { error, ...response } = await deleteAPI(session, path)
 
         // Log and return any errors
         if (error) {
@@ -352,14 +347,14 @@ export const postAPI = async (session, path, params) => {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
-    return await fetch(url, {
+    return fetch(url, {
         method: 'POST',
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
-    })
+    }).then((res) => res.json()).catch((error) => { error })
 }
 
 /**
@@ -373,14 +368,15 @@ export const patchAPI = async (session, path, params) => {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
-    return await fetch(url, {
+    return fetch(url, {
         method: 'PATCH',
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
-    })
+    }).then((res) => res.json()).catch((error) => { error })
+
 }
 
 /**
@@ -393,13 +389,13 @@ export const deleteAPI = async (session, path) => {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
-    return await fetch(url, {
+    return fetch(url, {
         method: 'DELETE',
         headers: isExport() ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' }
-    })
+    }).then((res) => res.json()).catch((error) => { error })
 }
 
 /**
