@@ -60,7 +60,14 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
     const path = apiPath(table, id, params)
     const swrResponse = useCache(path, swrConfig)
     const { data } = swrResponse
-    const entity = data || data?.data?.[0]
+
+    let entity
+
+    if (id) {
+        entity = data
+    } else {
+        entity = data?.data?.[0]
+    }
 
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
