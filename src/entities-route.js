@@ -1,5 +1,4 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import jwt from 'jsonwebtoken'
 
 import { createEntity, deleteEntities, getEntities, updateEntities } from './entity-helpers'
 
@@ -57,27 +56,21 @@ export async function entitiesRoute({ supabase, supabaseAdmin, entitySchemas, me
                 body.user_id = user_id
             }
         } else {
-            const { data: { session } } = await supabase.auth.getSession()
+            const { data: { user } } = await supabase.auth.getUser()
 
-            try {
-                const accessToken = session?.access_token || authToken
-                const user = jwt.verify(accessToken, process.env.SUPABASE_JWT_SECRET)
-                user.id = user.sub
-
-                params.user_id = user.id
-
-                if (body) {
-                    body.user_id = user.id
-                }
-            } catch (error) {
-                console.error(error)
-
+            if (!user) {
                 return {
                     status: 401,
                     body: {
                         error: { message: 'Unauthorized' }
                     }
                 }
+            }
+
+            params.user_id = user.id
+
+            if (body) {
+                body.user_id = user.id
             }
         }
     }
