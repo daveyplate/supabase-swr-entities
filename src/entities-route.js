@@ -19,10 +19,10 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
     const { entities } = query
     const table = entities.replace(/-/g, '_')
 
-    if (table == 'users' || table == 'profiles') return { status: 404, body: { error: { message: 'Resource Not Found' } } }
-
     const entitySchema = entitySchemas.find(schema => schema.table === table)
     if (!entitySchema) return { status: 404, body: { error: { message: 'Resource Not Found' } } }
+
+    if (entitySchema.disableList) return { status: 404, body: { error: { message: 'Resource Not Found' } } }
 
     const supabaseAdmin = createAdminClient()
 

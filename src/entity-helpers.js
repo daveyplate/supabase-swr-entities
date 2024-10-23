@@ -231,7 +231,7 @@ export async function entityQuery(table, method, values, params, select) {
     if (method != "upsert") {
         let newParams = params
         if (!params.id) {
-            newParams = { ...entitySchema.defaultParams, ...params }
+            newParams = { ...entitySchema.defaultParams, ...params, ...entitySchema.requiredParams }
         }
 
         for (let [key, value] of Object.entries(newParams)) {
@@ -239,8 +239,8 @@ export async function entityQuery(table, method, values, params, select) {
 
             if (key == 'or') {
                 query = query.or(value)
-            } else if (key.endsWith('_not')) {
-                query = query.not(key.slice(0, -4), 'is', value)
+            } else if (key.endsWith('_neq')) {
+                query = query.neq(key.slice(0, -4), value)
             } else if (key.endsWith('_in')) {
                 query = query.in(key.slice(0, -3), value.split(','))
             } else if (key.endsWith('_like')) {
@@ -257,8 +257,8 @@ export async function entityQuery(table, method, values, params, select) {
                 query = query.gte(key.slice(0, -3), value)
             } else if (key.endsWith('_lte')) {
                 query = query.lte(key.slice(0, -3), value)
-            } else if (key == "user_id") {
-                query = query.or(`user_id.eq.${value},user_id.is.null`)
+                // } else if (key == "user_id") {
+                //    query = query.or(`user_id.eq.${value},user_id.is.null`)
             } else if (value == "null" || value == null) {
                 query = query.is(key, null)
             } else {
