@@ -9,7 +9,8 @@ import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
  * @returns {Promise<[]>} Entity schemas
  */
 export async function loadEntitySchemas() {
-    const file = await fs.readFile(process.cwd() + '/entity.schemas.json', 'utf8');
+    const filePath = path.join(process.cwd(), 'entity.schemas.json');
+    const file = await fs.readFile(filePath, 'utf8');
     return JSON.parse(file)
 }
 
