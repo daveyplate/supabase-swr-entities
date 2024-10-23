@@ -79,7 +79,7 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
 
     // Build query
     if (method == 'GET') {
-        const { entities, count, limit, offset, error } = await getEntities(supabaseAdmin, entitySchemas, table, params)
+        const { entities, count, limit, offset, error } = await getEntities(table, params)
         if (error) return { status: 500, body: { error } }
 
         return {
@@ -96,7 +96,7 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
         if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
 
         // Upsert body on POST
-        const { entity, error } = await createEntity(supabaseAdmin, entitySchemas, table, body)
+        const { entity, error } = await createEntity(table, body)
         if (error) return { status: 500, body: { error } }
 
         return { status: 201, body: entity }
@@ -104,14 +104,14 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
         if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
 
         // Delete the entities
-        const { error } = await deleteEntities(supabaseAdmin, entitySchemas, table, params)
+        const { error } = await deleteEntities(table, params)
         if (error) return { status: 500, body: { error } }
 
         return { status: 200, body: { success: true } }
     } else if (method == 'PATCH') {
         if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
 
-        const { error } = await updateEntities(supabaseAdmin, entitySchemas, table, body, params)
+        const { error } = await updateEntities(table, body, params)
         if (error) return { status: 500, body: { error } }
 
         return { status: 200, body: { success: true } }

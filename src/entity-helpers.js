@@ -31,20 +31,18 @@ export async function loadEntitySchemas() {
 
 /**
  * Get a single entity from a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to get entity from
  * @param {string} id ID of the entity to get
  * @param {{}} params Additional parameters to apply to the query
  * @param {string[]} select Values to select
  * @returns {Promise<{entity: {}, error: PostgrestError?}>} Entity from the table or error
  */
-export async function getEntity(supabase, entitySchemas, table, id, params = {}, select = null) {
+export async function getEntity(table, id, params = {}, select = null) {
     if (id && !params.id) {
         params.id = id
     }
 
-    const { data, error } = await entityQuery(supabase, entitySchemas, table, "select", {}, params, select)
+    const { data, error } = await entityQuery(table, "select", {}, params, select)
 
     if (error) {
         console.error(error)
@@ -56,15 +54,13 @@ export async function getEntity(supabase, entitySchemas, table, id, params = {},
 
 /**
  * Get entities from a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to get entities from
  * @param {{limit: number, offset: number, order: string, any}} params Parameters to apply to the query
  * @param {string[]} select Values to select
  * @returns {Promise<{entities: {}[], error: PostgrestError?}>} Entities from the table or error
  */
-export async function getEntities(supabase, entitySchemas, table, params = {}, select = null) {
-    const { data, error, count } = await entityQuery(supabase, entitySchemas, table, "select", {}, params, select)
+export async function getEntities(table, params = {}, select = null) {
+    const { data, error, count } = await entityQuery(table, "select", {}, params, select)
 
     if (error) {
         console.error(error)
@@ -76,15 +72,13 @@ export async function getEntities(supabase, entitySchemas, table, params = {}, s
 
 /**
  * Create an entity in a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to create entity in
  * @param {{}} values Values to create the entity with
  * @param {string[]} select Fields to select
  * @returns {Promise<{entity: {}, error: PostgrestError?}>} Created entity or error
  */
-export async function createEntity(supabase, entitySchemas, table, values = {}, select = null) {
-    const { data, error } = await entityQuery(supabase, entitySchemas, table, "upsert", values, {}, select)
+export async function createEntity(table, values = {}, select = null) {
+    const { data, error } = await entityQuery(table, "upsert", values, {}, select)
 
     if (error) {
         console.error(error)
@@ -96,8 +90,6 @@ export async function createEntity(supabase, entitySchemas, table, values = {}, 
 
 /**
  * Update an entity in a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to update entity in
  * @param {string} id ID of the entity to update
  * @param {{}} values Values to update the entity with
@@ -105,8 +97,8 @@ export async function createEntity(supabase, entitySchemas, table, values = {}, 
  * @param {string[]} select Fields to select
  * @returns {Promise<{entity: {}, error: PostgrestError?}>} Updated entity or error
  */
-export const updateEntity = async (supabase, entitySchemas, table, id, values = {}, params = {}, select = null) => {
-    const { data, error } = await entityQuery(supabase, entitySchemas, table, "update", values, { id, ...params }, select)
+export const updateEntity = async (table, id, values = {}, params = {}, select = null) => {
+    const { data, error } = await entityQuery(table, "update", values, { id, ...params }, select)
 
     if (error) {
         console.error(error)
@@ -118,15 +110,13 @@ export const updateEntity = async (supabase, entitySchemas, table, id, values = 
 
 /**
  * Update entities in a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to update entities in
  * @param {{}} values Values to update the entities with
  * @param {{}} params Parameters to apply to the update query
  * @returns {Promise<{result: {success: boolean}, error: PostgrestError?}>}  Updated entities or error
  */
-export async function updateEntities(supabase, entitySchemas, table, values = {}, params = {}) {
-    const { error } = await entityQuery(supabase, entitySchemas, table, "update", values, params)
+export async function updateEntities(table, values = {}, params = {}) {
+    const { error } = await entityQuery(table, "update", values, params)
 
     if (error) {
         console.error(error)
@@ -138,15 +128,13 @@ export async function updateEntities(supabase, entitySchemas, table, values = {}
 
 /**
  * Delete an entity from a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to delete entity from
  * @param {string} id ID of the entity to delete
  * @param {{}} params Parameters to apply to the delete query
  * @returns {Promise<{result: {success: boolean}, error: PostgrestError?}>} Success status or error
  */
-export async function deleteEntity(supabase, entitySchemas, table, id, params = {}) {
-    const { error } = await entityQuery(supabase, entitySchemas, table, "delete", null, { id, ...params })
+export async function deleteEntity(table, id, params = {}) {
+    const { error } = await entityQuery(table, "delete", null, { id, ...params })
 
     if (error) {
         console.error(error)
@@ -158,14 +146,12 @@ export async function deleteEntity(supabase, entitySchemas, table, id, params = 
 
 /**
  * Delete entities from a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to delete entity from
  * @param {{}} params Parameters to apply to the delete query
  * @returns {Promise<{success: boolean, error: PostgrestError?}>} Success status or error
  */
-export async function deleteEntities(supabase, entitySchemas, table, params = {}) {
-    const { error } = await entityQuery(supabase, entitySchemas, table, "delete", null, params)
+export async function deleteEntities(table, params = {}) {
+    const { error } = await entityQuery(table, "delete", null, params)
 
     if (error) {
         console.error(error)
@@ -178,8 +164,6 @@ export async function deleteEntities(supabase, entitySchemas, table, params = {}
 
 /**
  * Build a query for a SQL table
- * @param {SupabaseClient} supabase Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} entitySchemas Entity schemas
  * @param {string} table SQL table to build query for
  * @param {string} method Method to use for the query
  * @param {{}} values Values to use in the query
@@ -187,7 +171,10 @@ export async function deleteEntities(supabase, entitySchemas, table, params = {}
  * @param {string[]} select Fields to select
  * @returns {PostgrestFilterBuilder} Query for the SQL table
  */
-export function entityQuery(supabase, entitySchemas, table, method, values, params, select) {
+export async function entityQuery(table, method, values, params, select) {
+    const entitySchemas = await loadEntitySchemas()
+    const supabase = createAdminClient()
+
     const entitySchema = entitySchemas.find(schema => schema.table === table)
     if (!entitySchema) return { error: 'Resource Not Found' }
 

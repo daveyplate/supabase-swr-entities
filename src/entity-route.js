@@ -85,7 +85,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
         }
 
         // Get the entity from Postgres with given ID & params
-        const { entity, error } = await getEntity(supabaseAdmin, entitySchemas, table, entity_id, params)
+        const { entity, error } = await getEntity(table, entity_id, params)
         if (error) return { status: 500, body: { error } }
 
         if (!entity) {
@@ -97,7 +97,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
         if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
         if ((table == 'users' || table == 'profiles') && entity_id != 'me') return { status: 405, body: { error: { message: 'Method Not Allowed' } } }
 
-        const { entity, error } = await updateEntity(supabaseAdmin, entitySchemas, table, entity_id, body, params)
+        const { entity, error } = await updateEntity(table, entity_id, body, params)
         if (error) return { status: 500, body: { error } }
 
         return { status: 200, body: entity }
@@ -119,7 +119,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
             return { status: 200, body: { success: true } }
         } else {
             // Delete non-user entities as normal
-            const { success, error } = await deleteEntity(supabaseAdmin, entitySchemas, table, entity_id, params)
+            const { success, error } = await deleteEntity(table, entity_id, params)
             if (error) return { status: 500, body: { error } }
 
             return { status: 200, body: { success } }

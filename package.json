@@ -1,7 +1,7 @@
 {
   "name": "@daveyplate/supabase-swr-entities",
   "homepage": "https://github.com/daveyplate/supabase-swr-entities",
-  "version": "1.0.29",
+  "version": "1.1.0",
   "description": "An entity management library for Supabase and SWR",
   "type": "module",
   "exports": {
@@ -39,7 +39,7 @@
     "husky": "^9.1.6",
     "typescript": "^5.6.2"
   },
-  "peerDependenciesDev": {
+  "peerDependencies": {
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/postgrest-js": "^1.16.2",
     "@supabase/supabase-js": "^2.45.4",
@@ -48,7 +48,7 @@
     "swr": "file:../daveyplate/node_modules/swr",
     "uuid": ">=10.0.0"
   },
-  "peerDependencie": {
+  "peerDependenciesProd": {
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/postgrest-js": "^1.16.2",
     "@supabase/supabase-js": "^2.45.4",
