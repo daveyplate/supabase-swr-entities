@@ -1,10 +1,11 @@
 {
   "name": "@daveyplate/supabase-swr-entities",
   "homepage": "https://github.com/daveyplate/supabase-swr-entities",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "An entity management library for Supabase and SWR",
+  "type": "module",
   "exports": {
-    ".": "./src/index",
+    "./client": "./src/index",
     "./server": "./src/server"
   },
   "typesVersions": {
