@@ -1,21 +1,18 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-import { getEntity, updateEntity, deleteEntity, loadEntitySchemas } from './entity-helpers'
-
+import { getEntity, updateEntity, deleteEntity, loadEntitySchemas, createAdminClient } from './entity-helpers'
 
 /**
  * Entity route handler
  * @param {{}} options Options
  * @param {SupabaseClient} options.supabase Supabase client
- * @param {SupabaseClient} options.supabaseAdmin Service Role Supabase client
- * @param {[{table: string, select: string[], defaultOrder: string, defaultParams: {}, authenticate: boolean}]} options.entitySchemas Entity schemas
  * @param {string} options.method HTTP method
  * @param {{}} options.headers HTTP headers
  * @param {{}} options.query Request query parameters
  * @param {{}} options.body Request body
  * @returns {Promise<{status: number, body: {}}>} Response status and body
  */
-export async function entityRoute({ supabase, supabaseAdmin, method, headers, query, body }) {
+export async function entityRoute({ supabase, method, headers, query, body }) {
     const entitySchemas = await loadEntitySchemas()
 
     // Determine the Entity and get the Schema
@@ -24,6 +21,8 @@ export async function entityRoute({ supabase, supabaseAdmin, method, headers, qu
 
     const entitySchema = entitySchemas.find(schema => schema.table === table)
     if (!entitySchema) return res.status(404).json({ error: { message: 'Resource Not Found' } })
+
+    const supabaseAdmin = createAdminClient()
 
     let params = { ...query }
 

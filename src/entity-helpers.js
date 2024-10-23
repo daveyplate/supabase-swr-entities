@@ -4,6 +4,21 @@ import { promises as fs } from 'fs'
 import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
 
+import { createClient as createClientPrimitive } from '@supabase/supabase-js'
+
+/**
+ * Create a Supabase client with service role key
+ * @returns {SupabaseClient} Supabase service role client
+ */
+export function createAdminClient() {
+    const supabase = createClientPrimitive(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+    )
+
+    return supabase
+}
+
 /**
  * Load entity schemas from entity.schemas.js
  * @returns {Promise<[]>} Entity schemas
