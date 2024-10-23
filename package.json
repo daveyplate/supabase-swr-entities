@@ -5,7 +5,7 @@
   "description": "An entity management library for Supabase and SWR",
   "type": "module",
   "exports": {
-    "./client": "./src/index",
+    ".": "./src/index",
     "./server": "./src/server"
   },
   "typesVersions": {
