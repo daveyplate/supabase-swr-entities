@@ -1,18 +1,16 @@
 import path from 'path'
-import fs from 'fs'
+import { promises as fs } from 'fs'
 
 import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
 
 /**
  * Load entity schemas from entity.schemas.js
- * @returns {[]} Entity schemas
+ * @returns {Promise<[]>} Entity schemas
  */
-export function loadEntitySchemas() {
-    const configPath = path.resolve(process.cwd(), 'entity.schemas.js')
-    if (fs.existsSync(configPath)) {
-        return require(configPath)
-    }
+export async function loadEntitySchemas() {
+    const file = await fs.readFile(process.cwd() + '/entity.schemas.json', 'utf8');
+    return JSON.parse(file)
 }
 
 /**

@@ -16,7 +16,7 @@ import { getEntity, updateEntity, deleteEntity, loadEntitySchemas } from './enti
  * @returns {Promise<{status: number, body: {}}>} Response status and body
  */
 export async function entityRoute({ supabase, supabaseAdmin, method, headers, query, body }) {
-    const entitySchemas = loadEntitySchemas()
+    const entitySchemas = await loadEntitySchemas()
 
     // Determine the Entity and get the Schema
     let { entities, entity_id } = query
