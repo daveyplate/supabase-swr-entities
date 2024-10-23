@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-import { getEntity, updateEntity, deleteEntity } from './entity-helpers'
+import { getEntity, updateEntity, deleteEntity, loadEntitySchemas } from './entity-helpers'
+
 
 /**
  * Entity route handler
@@ -14,7 +15,9 @@ import { getEntity, updateEntity, deleteEntity } from './entity-helpers'
  * @param {{}} options.body Request body
  * @returns {Promise<{status: number, body: {}}>} Response status and body
  */
-export async function entityRoute({ supabase, supabaseAdmin, entitySchemas, method, headers, query, body }) {
+export async function entityRoute({ supabase, supabaseAdmin, method, headers, query, body }) {
+    const entitySchemas = loadEntitySchemas()
+
     // Determine the Entity and get the Schema
     let { entities, entity_id } = query
     const table = entities.replace(/-/g, '_')

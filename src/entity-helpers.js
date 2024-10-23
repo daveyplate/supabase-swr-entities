@@ -1,5 +1,19 @@
+import path from 'path'
+import fs from 'fs'
+
 import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
+
+/**
+ * Load entity schemas from entity.schemas.js
+ * @returns {[]} Entity schemas
+ */
+export function loadEntitySchemas() {
+    const configPath = path.resolve(process.cwd(), 'entity.schemas.js')
+    if (fs.existsSync(configPath)) {
+        return require(configPath)
+    }
+}
 
 /**
  * Get a single entity from a SQL table
