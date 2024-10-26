@@ -20,7 +20,7 @@ export function useClearCache() {
 /**
  * Wraps useSWR with enabled state 
  * @param {string} query - The query to fetch
- * @param {object} config - The options for the fetch
+ * @param {import("swr").SWRConfig} config - The SWR config
  * @returns {import("swr").SWRResponse} - The SWR response
  */
 export function useCache(query, config) {
