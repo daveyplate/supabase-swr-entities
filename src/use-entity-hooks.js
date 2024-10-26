@@ -20,7 +20,7 @@ export function useClearCache() {
 /**
  * Wraps useSWR with enabled state 
  * @param {string} query - The query to fetch
- * @param {import("swr").SWRConfig} config - The SWR config
+ * @param {import("swr").SWRConfiguration} config - The SWR config
  * @returns {import("swr").SWRResponse} - The SWR response
  */
 export function useCache(query, config) {
@@ -61,10 +61,10 @@ export function useCache(query, config) {
  * @param {string} table - The table name
  * @param {string} id - The entity ID
  * @param {object} params - The query parameters
- * @param {import("swr").SWRConfig} swrConfig - The SWR config
+ * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
  * @returns {object} The entity and functions to update and delete it
  */
-export const useEntity = (table, id, params = null, swrConfig = null) => {
+export function useEntity(table, id, params = null, swrConfig = null) {
     const path = apiPath(table, id, params)
     const swrResponse = useCache(path, swrConfig)
     const { data } = swrResponse
@@ -105,10 +105,10 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
  * Hook for fetching entities
  * @param {string} table - The table name
  * @param {object} params - The query parameters
- * @param {import("swr").SWRConfig} swrConfig - The SWR config
+ * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
  * @returns {object} The entity and functions to update and delete it
  */
-export const useEntities = (table, params = null, swrConfig = null) => {
+export function useEntities(table, params = null, swrConfig = null) {
     const path = apiPath(table, null, params)
     const swrResponse = useCache(path, swrConfig)
     const { data } = swrResponse
