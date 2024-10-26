@@ -56,6 +56,14 @@ export function useCache(query, config) {
     return { ...swr, isLoading: swr.isLoading || !provider }
 }
 
+/**
+ * Hook for fetching an entity by ID
+ * @param {string} table - The table name
+ * @param {string} id - The entity ID
+ * @param {object} params - The query parameters
+ * @param {import("swr").SWRConfig} swrConfig - The SWR config
+ * @returns {object} The entity and functions to update and delete it
+ */
 export const useEntity = (table, id, params = null, swrConfig = null) => {
     const path = apiPath(table, id, params)
     const swrResponse = useCache(path, swrConfig)
@@ -93,6 +101,13 @@ export const useEntity = (table, id, params = null, swrConfig = null) => {
     return { ...swrResponse, entity, updateEntity: update, deleteEntity: doDelete, mutate: mutateEntity }
 }
 
+/**
+ * Hook for fetching entities
+ * @param {string} table - The table name
+ * @param {object} params - The query parameters
+ * @param {import("swr").SWRConfig} swrConfig - The SWR config
+ * @returns {object} The entity and functions to update and delete it
+ */
 export const useEntities = (table, params = null, swrConfig = null) => {
     const path = apiPath(table, null, params)
     const swrResponse = useCache(path, swrConfig)
