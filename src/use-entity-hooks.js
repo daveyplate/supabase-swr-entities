@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useSession } from "@supabase/auth-helpers-react"
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import { v4 } from "uuid"
 
@@ -25,6 +25,7 @@ export function useClearCache() {
  */
 export function useCache(query, config) {
     const session = useSession()
+    const supabase = useSupabaseClient()
     const { provider } = useSWRConfig()
 
     const fetcher = async (url) => {
@@ -47,6 +48,10 @@ export function useCache(query, config) {
         if (res.ok) {
             return res.json()
         } else {
+            if (res.status == 401) {
+                supabase.auth.signOut()
+            }
+
             throw new Error(res.statusText)
         }
     }
