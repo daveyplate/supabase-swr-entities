@@ -94,9 +94,9 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
 
         // Reactivate deactivated users
         if ((table == 'users' || table == 'profiles') && entity_id == 'me' && entity.deactivated) {
-            const { entity, error } = await updateEntity(table, entity.id, { deactivated: false })
-            if (error) return { status: 500, body: { error } }
-            return { status: 200, body: entity }
+            const { entity: newEntity, error: updateError } = await updateEntity(table, entity.id, { deactivated: false })
+            if (updateError) return { status: 500, body: { error: updateError } }
+            return { status: 200, body: newEntity }
         }
 
         return { status: 200, body: entity }
