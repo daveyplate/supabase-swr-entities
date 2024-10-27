@@ -87,9 +87,9 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
                 const authColumns = entitySchema.authColumns?.[methodMap[method]] || ["user_id"]
 
                 if (authColumns.length == 1) {
-                    params[authColumns[0]] = user_id
+                    params[authColumns[0]] = user.id
                 } else {
-                    params.or = authColumns.map(column => column + ".eq." + user_id).join(',')
+                    params.or = authColumns.map(column => column + ".eq." + user.id).join(',')
                 }
             }
         }
