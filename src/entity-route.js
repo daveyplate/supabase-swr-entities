@@ -92,8 +92,9 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
             return { status: 404, body: { error: { message: 'Resource Not Found' } } }
         }
 
+        // Reactivate deactivated users
         if ((table == 'users' || table == 'profiles') && entity_id == 'me' && entity.deactivated) {
-            const { entity, error } = await updateEntity(table, "me", { deactivated: false })
+            const { entity, error } = await updateEntity(table, entity.id, { deactivated: false })
             if (error) return { status: 500, body: { error } }
             return { status: 200, body: entity }
         }
