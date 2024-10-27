@@ -52,6 +52,10 @@ export function useCache(query, config) {
                 supabase.auth.signOut()
             }
 
+            if (res.status == 404) {
+                return null
+            }
+
             throw new Error(res.statusText)
         }
     }
@@ -105,7 +109,7 @@ export function useEntity(table, id, params = null, swrConfig = null) {
 
     const update = async (fields) => {
         if (!entity) return { error: new Error("Entity not found") }
-        return await updateEntity(table, entity, fields, params)
+        return await updateEntity(table, id, entity, fields, params)
     }
 
     const doDelete = async () => {
@@ -199,7 +203,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         mutateEntities(entities.map(e => e.id == entity.id ? newEntity : e), false)
 
         // Update the entity via API
-        const response = await updateEntity(table, entity, fields)
+        const response = await updateEntity(table, entity.id, entity, fields)
         if (response.error) mutateEntities()
 
         return response
@@ -281,24 +285,21 @@ export function useCreateEntity() {
 
 /**
  * Hook for updating an entity
- * @returns {(table: string, entity: object, fields: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to update an entity
+ * @returns {(table: string, id: string, entity: object, fields: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to update an entity
  */
 export function useUpdateEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
-    const updateEntity = async (table, entity, fields, params) => {
-        // Only allow users to update "me" entity
-        let entityId = entity.id
-        if (table == "users" || table == "profiles") {
-            entityId = "me"
-        }
-
-        let path = apiPath(table, entityId, params)
+    const updateEntity = async (table, id, entity, fields, params) => {
+        let path = apiPath(table, id, params)
         let newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the cache
         mutate(path, newEntity, false)
+        if (id != entity.id) {
+            mutate(apiPath(table, entity.id, params), newEntity, false)
+        }
 
         // Update the entity via API
         const { error, ...response } = await patchAPI(session, path, fields)
@@ -315,6 +316,9 @@ export function useUpdateEntity() {
         if (response.id) {
             newEntity = response
             mutate(path, newEntity, false)
+            if (id != entity.id) {
+                mutate(apiPath(table, entity.id, params), newEntity, false)
+            }
         }
 
         return { entity: newEntity }

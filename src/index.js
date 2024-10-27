@@ -1,1 +1,1 @@
-export * from './use-entity-hooks'
+export * from './client/use-entity-hooks'

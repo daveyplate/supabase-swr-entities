@@ -1,3 +1,3 @@
-export * from './entity-helpers'
-export * from './entity-route'
-export * from './entities-route'
+export * from './server/entity-helpers'
+export * from './server/entity-route'
+export * from './server/entities-route'

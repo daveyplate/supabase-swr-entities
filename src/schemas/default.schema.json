@@ -1,0 +1,14 @@
+{
+    "allowMethods": [
+        "*"
+    ],
+    "authMethods": [
+        "update",
+        "upsert",
+        "delete"
+    ],
+    "authColumn": "user_id",
+    "select": [
+        "*"
+    ]
+}

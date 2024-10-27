@@ -6,6 +6,9 @@ import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
 
 import { createClient as createClientPrimitive } from '@supabase/supabase-js'
 
+import defaultSchema from '../schemas/default.schema.json'
+import usersSchema from '../schemas/users.schema.json'
+
 /**
  * Create a Supabase client with service role key
  * @returns {SupabaseClient} Supabase service role client
@@ -17,6 +20,27 @@ export function createAdminClient() {
     )
 
     return supabase
+}
+
+/**
+ * Load an entity schema from entity.schemas.js
+ * @param {string} table SQL table to load schema for
+ * @returns {Promise<{entitySchema: object?, error: Error?}>} Entity schema or error
+ */
+export async function loadEntitySchema(table) {
+    const entitySchemas = await loadEntitySchemas()
+    const entitySchema = entitySchemas.find(schema => schema.table === table)
+    if (!entitySchema) return { error: { message: `Schema Not Found: ${table}` } }
+
+    let mergedSchema = { ...defaultSchema }
+
+    if (entitySchema.usersSchema) {
+        mergedSchema = { ...mergedSchema, ...usersSchema }
+    }
+
+    mergedSchema = { ...mergedSchema, ...entitySchema }
+
+    return { entitySchema: mergedSchema }
 }
 
 /**
@@ -38,11 +62,7 @@ export async function loadEntitySchemas() {
  * @returns {Promise<{entity: object?, error: PostgrestError?}>} Entity from the table or error
  */
 export async function getEntity(table, id, params = {}, select = null) {
-    if (id && !params.id) {
-        params.id = id
-    }
-
-    const { data, error } = await entityQuery(table, "select", {}, params, select)
+    const { data, error } = await entityQuery(table, "select", {}, { id, ...params }, select)
 
     if (error) {
         console.error(error)
@@ -192,16 +212,6 @@ export async function entityQuery(table, method, values, params, select) {
     }
 
     if (!query) return { error: 'Method not allowed' }
-
-    // Append default and required parameters
-    // TODO - Move this limiter out to the routes, admins can do anything with entityQuery
-    if (method == "select") {
-        if (!params.id) {
-            params = { ...entitySchema.defaultParams, ...params }
-        }
-
-        params = { ...params, ...entitySchema.requiredParams }
-    }
 
     // Select values with default fallback
     if (method != "delete" && (method != "update" || params.id)) {

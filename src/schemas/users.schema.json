@@ -1,0 +1,12 @@
+{
+    "allowMethods": [
+        "select",
+        "update"
+    ],
+    "authMethods": [
+        "update"
+    ],
+    "authColumn": "id",
+    "hasMe": true,
+    "hasDeactivated": true
+}
