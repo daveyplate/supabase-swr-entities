@@ -194,6 +194,7 @@ export async function entityQuery(table, method, values, params, select) {
     if (!query) return { error: 'Method not allowed' }
 
     // Append default and required parameters
+    // TODO - Move this limiter out to the routes, admins can do anything with entityQuery
     if (method == "select") {
         if (!params.id) {
             params = { ...entitySchema.defaultParams, ...params }
