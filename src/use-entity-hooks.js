@@ -98,7 +98,7 @@ export function useEntity(table, id, params = null, swrConfig = null) {
         return await deleteEntity(table, id, params)
     }
 
-    return { ...swrResponse, entity, updateEntity: update, deleteEntity: doDelete, mutate: mutateEntity }
+    return { ...swrResponse, entity, updateEntity: update, deleteEntity: doDelete, mutate: mutateEntity, mutateEntity }
 }
 
 /**
@@ -192,7 +192,8 @@ export function useEntities(table, params = null, swrConfig = null) {
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,
-        mutate: mutateEntities
+        mutate: mutateEntities,
+        mutateEntities
     }
 }
 
