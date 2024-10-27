@@ -37,7 +37,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
     delete params.entity_id
 
     // Authenticate the user
-    if (entitySchema.authenticate || ((table == 'users' || table == 'profiles') && entity_id == 'me')) {
+    if (entitySchema.authenticate || ((table == 'users' || table == 'profiles') && entity_id == 'me') || method == 'DELETE' || method == 'PATCH') {
         // Check for Bearer access token
         const authToken = headers?.authorization?.split('Bearer ')[1]
 
@@ -120,7 +120,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
 
         return { status: 200, body: entity }
     } else if (method == 'PATCH') {
-        if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
+        // if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
         if ((table == 'users' || table == 'profiles') && entity_id != 'me') return { status: 405, body: { error: { message: 'Method Not Allowed' } } }
 
         const { entity, error } = await updateEntity(table, entity_id, body, params)
@@ -128,7 +128,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
 
         return { status: 200, body: entity }
     } else if (method == 'DELETE') {
-        if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
+        // if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
         if ((table == 'users' || table == 'profiles') && entity_id != 'me') return { status: 405, body: { error: { message: 'Method Not Allowed' } } }
 
         if (table == 'users' || table == 'profiles') {
