@@ -92,6 +92,12 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
             return { status: 404, body: { error: { message: 'Resource Not Found' } } }
         }
 
+        if ((table == 'users' || table == 'profiles') && entity_id == 'me' && entity.deactivated) {
+            const { entity, error } = await updateEntity(table, "me", { deactivated: false })
+            if (error) return { status: 500, body: { error } }
+            return { status: 200, body: entity }
+        }
+
         return { status: 200, body: entity }
     } else if (method == 'PATCH') {
         if (!entitySchema.authenticate && table != 'users' && table != 'profiles') return { status: 401, body: { error: { message: 'Unauthorized' } } }
