@@ -214,10 +214,10 @@ export async function entityQuery(table, method, values, params, select) {
     if (!query) return { error: 'Method not allowed' }
 
     // Select values with default fallback
-    if (method != "delete" && (method != "update" || params.id)) {
-        const selectValues = (select || entitySchema.select)?.join(', ')
-        query = query.select(selectValues, { count: 'exact' })
-    }
+    //  if (method != "delete" && (method != "update" || params.id)) {
+    const selectValues = (select || entitySchema.select)?.join(', ')
+    query = query.select(selectValues, { count: 'exact' })
+    // }
 
     // Sort order
     const order = params.order || entitySchema.defaultOrder
