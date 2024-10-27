@@ -38,7 +38,7 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
     delete params.entities
 
     // Authenticate the user
-    if (entitySchema.authenticate) {
+    if (entitySchema.authenticate || method == 'POST' || method == 'DELETE' || method == 'PATCH') {
         // Check for Bearer access token
         const authToken = headers?.authorization?.split('Bearer ')[1]
 
@@ -112,24 +112,18 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
             }
         }
     } else if (method == 'POST') {
-        if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
-
         // Upsert body on POST
         const { entity, error } = await createEntity(table, body)
         if (error) return { status: 500, body: { error } }
 
         return { status: 201, body: entity }
     } else if (method == 'DELETE') {
-        if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
-
         // Delete the entities
         const { error } = await deleteEntities(table, params)
         if (error) return { status: 500, body: { error } }
 
         return { status: 200, body: { success: true } }
     } else if (method == 'PATCH') {
-        if (!entitySchema.authenticate) return { status: 401, body: { error: { message: 'Unauthorized' } } }
-
         const { error } = await updateEntities(table, body, params)
         if (error) return { status: 500, body: { error } }
 

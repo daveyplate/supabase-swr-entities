@@ -35,7 +35,7 @@ export function useCache(query, config) {
         // Use base URL for export
         if (isExport()) {
             // Pass session access token
-            if (session?.access_token) {
+            if (session) {
                 headers['Authorization'] = `Bearer ${session.access_token}`;
             }
 
@@ -173,6 +173,11 @@ export function useEntities(table, params = null, swrConfig = null) {
     }, [addEntity])
 
     const create = async (entity) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         // Mutate the new entity directly to the parent cache
         const newEntity = { ...entity, user_id: session.user.id }
         if (!newEntity.id) newEntity.id = v4()
@@ -235,6 +240,11 @@ export function useCreateEntity() {
     const { mutate } = useSWRConfig()
 
     const createEntity = async (table, entity = {}, params) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         let newEntity = { ...entity, user_id: session.user.id }
         if (!newEntity.id) newEntity.id = v4()
 

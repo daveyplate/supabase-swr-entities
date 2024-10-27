@@ -39,8 +39,8 @@
     "husky": "^9.1.6",
     "typescript": "^5.6.2"
   },
-  "peerDependenciesDev": {
-    "@supabase/auth-helpers-react": "^0.5.0",
+  "peerDependencies": {
+    "@supabase/auth-helpers-react": "file:../daveyplate/node_modules/@supabase/auth-helpers-react",
     "@supabase/postgrest-js": "^1.16.2",
     "@supabase/supabase-js": "^2.45.4",
     "react": "file:../daveyplate/node_modules/react",
@@ -48,7 +48,7 @@
     "swr": "file:../daveyplate/node_modules/swr",
     "uuid": ">=10.0.0"
   },
-  "peerDependencies": {
+  "peerDependenciesProd": {
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/postgrest-js": "^1.16.2",
     "@supabase/supabase-js": "^2.45.4",
