@@ -21,7 +21,7 @@ export function createAdminClient() {
 
 /**
  * Load entity schemas from entity.schemas.js
- * @returns {Promise<[]>} Entity schemas
+ * @returns {Promise<object[]>} Entity schemas
  */
 export async function loadEntitySchemas() {
     const filePath = path.join(process.cwd(), 'entity.schemas.json');
@@ -33,9 +33,9 @@ export async function loadEntitySchemas() {
  * Get a single entity from a SQL table
  * @param {string} table SQL table to get entity from
  * @param {string} id ID of the entity to get
- * @param {{}} params Additional parameters to apply to the query
- * @param {string[]} select Values to select
- * @returns {Promise<{entity: {}, error: PostgrestError?}>} Entity from the table or error
+ * @param {object} [params={}] Additional parameters to apply to the query
+ * @param {string[]} [select] Values to select
+ * @returns {Promise<{entity: object?, error: PostgrestError?}>} Entity from the table or error
  */
 export async function getEntity(table, id, params = {}, select = null) {
     if (id && !params.id) {
@@ -55,9 +55,9 @@ export async function getEntity(table, id, params = {}, select = null) {
 /**
  * Get entities from a SQL table
  * @param {string} table SQL table to get entities from
- * @param {{limit: number, offset: number, order: string, any}} params Parameters to apply to the query
- * @param {string[]} select Values to select
- * @returns {Promise<{entities: {}[], error: PostgrestError?}>} Entities from the table or error
+ * @param {{limit: number, offset: number, order: string, [key: string]: any}} [params={}] Parameters to apply to the query
+ * @param {string[]} [select] Values to select
+ * @returns {Promise<{entities: object[]?, count: number?, limit: number?, offset: number?, error: PostgrestError?}>} Entities from the table or error
  */
 export async function getEntities(table, params = {}, select = null) {
     const { data, error, count } = await entityQuery(table, "select", {}, params, select)
@@ -73,9 +73,9 @@ export async function getEntities(table, params = {}, select = null) {
 /**
  * Create an entity in a SQL table
  * @param {string} table SQL table to create entity in
- * @param {{}} values Values to create the entity with
- * @param {string[]} select Fields to select
- * @returns {Promise<{entity: {}, error: PostgrestError?}>} Created entity or error
+ * @param {object} [values={}] Values to create the entity with
+ * @param {string[]} [select] Fields to select
+ * @returns {Promise<{entity: object?, error: PostgrestError?}>} Created entity or error
  */
 export async function createEntity(table, values = {}, select = null) {
     const { data, error } = await entityQuery(table, "upsert", values, {}, select)
@@ -92,10 +92,10 @@ export async function createEntity(table, values = {}, select = null) {
  * Update an entity in a SQL table
  * @param {string} table SQL table to update entity in
  * @param {string} id ID of the entity to update
- * @param {{}} values Values to update the entity with
- * @param {{}} params Parameters to apply to the update query
- * @param {string[]} select Fields to select
- * @returns {Promise<{entity: {}, error: PostgrestError?}>} Updated entity or error
+ * @param {object} [values={}] Values to update the entity with
+ * @param {object} [params={}] Parameters to apply to the update query
+ * @param {string[]} [select] Fields to select
+ * @returns {Promise<{entity: object?, error: PostgrestError?}>} Updated entity or error
  */
 export const updateEntity = async (table, id, values = {}, params = {}, select = null) => {
     const { data, error } = await entityQuery(table, "update", values, { id, ...params }, select)
@@ -111,9 +111,9 @@ export const updateEntity = async (table, id, values = {}, params = {}, select =
 /**
  * Update entities in a SQL table
  * @param {string} table SQL table to update entities in
- * @param {{}} values Values to update the entities with
- * @param {{}} params Parameters to apply to the update query
- * @returns {Promise<{result: {success: boolean}, error: PostgrestError?}>}  Updated entities or error
+ * @param {object} [values={}] Values to update the entities with
+ * @param {object} [params={}] Parameters to apply to the update query
+ * @returns {Promise<{success: boolean?, error: PostgrestError?}>}  Updated entities or error
  */
 export async function updateEntities(table, values = {}, params = {}) {
     const { error } = await entityQuery(table, "update", values, params)
@@ -130,8 +130,8 @@ export async function updateEntities(table, values = {}, params = {}) {
  * Delete an entity from a SQL table
  * @param {string} table SQL table to delete entity from
  * @param {string} id ID of the entity to delete
- * @param {{}} params Parameters to apply to the delete query
- * @returns {Promise<{result: {success: boolean}, error: PostgrestError?}>} Success status or error
+ * @param {object} [params={}] Parameters to apply to the delete query
+ * @returns {Promise<{success: boolean?, error: PostgrestError?}>} Success status or error
  */
 export async function deleteEntity(table, id, params = {}) {
     const { error } = await entityQuery(table, "delete", null, { id, ...params })
@@ -147,8 +147,8 @@ export async function deleteEntity(table, id, params = {}) {
 /**
  * Delete entities from a SQL table
  * @param {string} table SQL table to delete entity from
- * @param {{}} params Parameters to apply to the delete query
- * @returns {Promise<{success: boolean, error: PostgrestError?}>} Success status or error
+ * @param {object} [params={}] Parameters to apply to the delete query
+ * @returns {Promise<{success: boolean?, error: PostgrestError?}>} Success status or error
  */
 export async function deleteEntities(table, params = {}) {
     const { error } = await entityQuery(table, "delete", null, params)
@@ -166,8 +166,8 @@ export async function deleteEntities(table, params = {}) {
  * Build a query for a SQL table
  * @param {string} table SQL table to build query for
  * @param {string} method Method to use for the query
- * @param {{}} values Values to use in the query
- * @param {{}} params Parameters to apply to the query
+ * @param {object} values Values to use in the query
+ * @param {object} params Parameters to apply to the query
  * @param {string[]} select Fields to select
  * @returns {PostgrestFilterBuilder} Query for the SQL table
  */

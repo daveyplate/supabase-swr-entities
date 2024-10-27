@@ -4,12 +4,12 @@ import { createAdminClient, createEntity, deleteEntities, getEntities, loadEntit
 
 /**
  * Entities route handler
- * @param {{}} options Options
+ * @param {object} options Options
  * @param {SupabaseClient} options.supabase Supabase client
  * @param {string} options.method HTTP method
- * @param {{}} options.headers HTTP headers
- * @param {{}} options.query Request query parameters
- * @param {{}} options.body Request body
+ * @param {object} [options.headers] HTTP headers
+ * @param {object} options.query Request query parameters
+ * @param {object} [options.body] Request body
  * @returns {Promise<{status: number, body: {}}>} Response status and body
  */
 export async function entitiesRoute({ supabase, method, headers, query, body }) {
