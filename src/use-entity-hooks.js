@@ -18,10 +18,10 @@ export function useClearCache() {
 }
 
 /**
- * Wraps useSWR with enabled state 
+ * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
  * @param {string} query - The query to fetch
  * @param {import("swr").SWRConfiguration} config - The SWR config
- * @returns {import("swr").SWRResponse} - The SWR response
+ * @returns {import("swr").SWRResponse} The SWR response
  */
 export function useCache(query, config) {
     const session = useSession()
@@ -57,12 +57,21 @@ export function useCache(query, config) {
 }
 
 /**
+ * @typedef {object} EntityResponseType
+ * @property {object} entity - The entity
+ * @property {(fields: object) => Promise<{error: Error, entity: object}>} updateEntity - The function to update the entity
+ * @property {() => Promise<{error: Error}>} deleteEntity - The function to delete the entity
+ * @property {(entity: object, opts: import("swr").mutateOptions) => void} mutateEntity - The function to mutate the entity
+ * @typedef {import("swr").SWRResponse & EntityResponseType} EntityResponse
+ */
+
+/**
  * Hook for fetching an entity by ID
  * @param {string} table - The table name
  * @param {string} id - The entity ID
  * @param {object} params - The query parameters
  * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
- * @returns {object} The entity and functions to update and delete it
+ * @returns {EntityResponse} The entity and functions to update and delete it
  */
 export function useEntity(table, id, params = null, swrConfig = null) {
     const path = apiPath(table, id, params)
@@ -101,12 +110,27 @@ export function useEntity(table, id, params = null, swrConfig = null) {
     return { ...swrResponse, entity, updateEntity: update, deleteEntity: doDelete, mutate: mutateEntity, mutateEntity }
 }
 
+
+/**
+ * @typedef {object} EntitiesResponseType
+ * @property {object[]} entities - The entities
+ * @property {number} count - The total count of entities
+ * @property {number} limit - The limit of entities per page
+ * @property {number} offset - The current offset
+ * @property {boolean} has_more - Whether there are more entities
+ * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
+ * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
+ * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
+ * @property {(entities: object[], opts: import("swr").mutateOptions) => void} mutateEntities - The function to mutate the entities
+ * @typedef {import("swr").SWRResponse & EntitiesResponseType} EntitiesResponse
+ */
+
 /**
  * Hook for fetching entities
  * @param {string} table - The table name
  * @param {object} params - The query parameters
  * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
- * @returns {object} The entity and functions to update and delete it
+ * @returns {EntitiesResponse} The entity and functions to update and delete it
  */
 export function useEntities(table, params = null, swrConfig = null) {
     const path = apiPath(table, null, params)
@@ -197,7 +221,11 @@ export function useEntities(table, params = null, swrConfig = null) {
     }
 }
 
-export const useCreateEntity = () => {
+/**
+ * Hook for creating an entity
+ * @returns {(table: string, entity: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to create an entity
+ */
+export function useCreateEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
@@ -236,7 +264,11 @@ export const useCreateEntity = () => {
     return createEntity
 }
 
-export const useUpdateEntity = () => {
+/**
+ * Hook for updating an entity
+ * @returns {(table: string, entity: object, fields: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to update an entity
+ */
+export function useUpdateEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
@@ -276,7 +308,11 @@ export const useUpdateEntity = () => {
     return updateEntity
 }
 
-export const useDeleteEntity = () => {
+/**
+ * Hook for deleting an entity
+ * @returns {(table: string, id: string, params: object?) => Promise<{error: Error?}>} The function to delete an entity
+ */
+export function useDeleteEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
@@ -302,7 +338,11 @@ export const useDeleteEntity = () => {
     return deleteEntity
 }
 
-export const useUpdateEntities = () => {
+/**
+ * Hook for updating entities
+ * @returns {(table: string, params: object, fields: object) => Promise<{error: Error?, [key: string]: any}>} The function to update entities
+ */
+export function useUpdateEntities() {
     const session = useSession()
 
     const updateEntities = async (table, params, fields) => {
@@ -323,7 +363,11 @@ export const useUpdateEntities = () => {
     return updateEntities
 }
 
-export const useDeleteEntities = () => {
+/**
+ * Hook for deleting entities
+ * @returns {(table: string, params: object) => Promise<{error: Error?, [key: string]: any}>} The function to delete entities
+ */
+export function useDeleteEntities() {
     const session = useSession()
 
     const deleteEntities = async (table, params) => {
@@ -344,7 +388,11 @@ export const useDeleteEntities = () => {
     return deleteEntities
 }
 
-export const useMutateEntities = () => {
+/**
+ * Hook for mutating entities
+ * @returns {(table: string, params: object, entities: object[], opts: import("swr").mutateOptions) => Promise<any>} The function to mutate entities
+ */
+export function useMutateEntities() {
     const { mutate } = useSWRConfig()
 
     const mutateEntities = (table, params, entities, opts) => {
@@ -360,7 +408,11 @@ export const useMutateEntities = () => {
     return mutateEntities
 }
 
-export const useMutateEntity = () => {
+/**
+ * Hook for mutating an entity
+ * @returns {(table: string, id: string, entity: object) => Promise<any>} The function to mutate an entity
+ */
+export function useMutateEntity() {
     const { mutate } = useSWRConfig()
 
     const mutateEntity = (table, id, entity) => {
@@ -376,7 +428,14 @@ export const useMutateEntity = () => {
     return mutateEntity
 }
 
-const apiPath = (table, id, params) => {
+/**
+ * Generate API path
+ * @param {string} table - The table name
+ * @param {string} id - The entity ID
+ * @param {object} params - The query parameters
+ * @returns {string} The API path
+ */
+function apiPath(table, id, params) {
     if (!table) return null
 
     const route = table.replaceAll('_', '-')
@@ -399,9 +458,9 @@ const apiPath = (table, id, params) => {
  * @param {object} session - The session object.
  * @param {string} path - The API path.
  * @param {object} params - The parameters to send with the request.
- * @returns {Promise} A promise that resolves with the API response.
+ * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
  */
-export const postAPI = async (session, path, params) => {
+export async function postAPI(session, path, params) {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
@@ -420,9 +479,9 @@ export const postAPI = async (session, path, params) => {
  * @param {object} session - The session object.
  * @param {string} path - The API path.
  * @param {object} params - The parameters to send with the request.
- * @returns {Promise} A promise that resolves with the API response.
+ * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
  */
-export const patchAPI = async (session, path, params) => {
+export async function patchAPI(session, path, params) {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
@@ -441,9 +500,9 @@ export const patchAPI = async (session, path, params) => {
  * Make a DELETE request to the API.
  * @param {object} session - The session object.
  * @param {string} path - The API path.
- * @returns {Promise} A promise that resolves with the API response.
+ * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
  */
-export const deleteAPI = async (session, path) => {
+export async function deleteAPI(session, path) {
     const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
     const url = baseUrl + path
 
@@ -458,8 +517,8 @@ export const deleteAPI = async (session, path) => {
 
 /**
  * Check if the app is being exported.
- * @returns {boolean} True if NEXT_PUBLIC_IS_EXPORT is "1", false otherwise.
+ * @returns {boolean} True if NEXT_PUBLIC_IS_EXPORT is "1" or NEXT_PUBLIC_IS_MOBILE is "true".
  */
 function isExport() {
-    return process.env.NEXT_PUBLIC_IS_EXPORT == "1"
+    return process.env.NEXT_PUBLIC_IS_EXPORT == '1' || process.env.NEXT_PUBLIC_IS_MOBILE == 'true'
 }
