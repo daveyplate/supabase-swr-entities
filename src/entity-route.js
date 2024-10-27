@@ -2,6 +2,13 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 import { getEntity, updateEntity, deleteEntity, loadEntitySchemas, createAdminClient } from './entity-helpers'
 
+const methodMap = {
+    "GET": "select",
+    "PATCH": "update",
+    "POST": "upsert",
+    "DELETE": "delete"
+}
+
 /**
  * Entity route handler
  * @param {object} options Options
@@ -54,7 +61,13 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
             if (table == 'users' || table == 'profiles') {
                 params.id = user_id
             } else {
-                params.user_id = user_id
+                const authColumns = entitySchema.authColumns?.[methodMap[method]] || ["user_id"]
+
+                if (authColumns.length == 1) {
+                    params[authColumns[0]] = user_id
+                } else {
+                    params.or = authColumns.map(column => column + ".eq." + user_id).join(',')
+                }
             }
         } else {
             const { data: { user } } = await supabase.auth.getUser()
@@ -71,7 +84,13 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
             if (table == 'users' || table == 'profiles') {
                 params.id = user.id
             } else {
-                params.user_id = user.id
+                const authColumns = entitySchema.authColumns?.[methodMap[method]] || ["user_id"]
+
+                if (authColumns.length == 1) {
+                    params[authColumns[0]] = user_id
+                } else {
+                    params.or = authColumns.map(column => column + ".eq." + user_id).join(',')
+                }
             }
         }
     }

@@ -193,6 +193,15 @@ export async function entityQuery(table, method, values, params, select) {
 
     if (!query) return { error: 'Method not allowed' }
 
+    // Append default and required parameters
+    if (method == "select") {
+        if (!params.id) {
+            params = { ...entitySchema.defaultParams, ...params }
+        }
+
+        params = { ...params, ...entitySchema.requiredParams }
+    }
+
     // Select values with default fallback
     if (method != "delete" && (method != "update" || params.id)) {
         const selectValues = (select || entitySchema.select)?.join(', ')
@@ -229,12 +238,7 @@ export async function entityQuery(table, method, values, params, select) {
 
     // Apply additional parameters to the query
     if (method != "upsert") {
-        let newParams = params
-        if (!params.id) {
-            newParams = { ...entitySchema.defaultParams, ...params, ...entitySchema.requiredParams }
-        }
-
-        for (let [key, value] of Object.entries(newParams)) {
+        for (let [key, value] of Object.entries(params)) {
             if (['limit', 'offset', 'order'].includes(key)) continue
 
             if (key == 'or') {

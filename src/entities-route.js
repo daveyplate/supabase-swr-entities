@@ -2,6 +2,13 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 import { createAdminClient, createEntity, deleteEntities, getEntities, loadEntitySchemas, updateEntities } from './entity-helpers'
 
+const methodMap = {
+    "GET": "select",
+    "PATCH": "update",
+    "POST": "upsert",
+    "DELETE": "delete"
+}
+
 /**
  * Entities route handler
  * @param {object} options Options
@@ -52,7 +59,13 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
                 }
             }
 
-            params.user_id = user_id
+            const authColumns = entitySchema.authColumns?.[methodMap[method]] || ["user_id"]
+
+            if (authColumns.length == 1) {
+                params[authColumns[0]] = user_id
+            } else {
+                params.or = authColumns.map(column => column + ".eq." + user_id).join(',')
+            }
 
             if (body) {
                 body.user_id = user_id
@@ -69,7 +82,13 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
                 }
             }
 
-            params.user_id = user.id
+            const authColumns = entitySchema.authColumns?.[methodMap[method]] || ["user_id"]
+
+            if (authColumns.length == 1) {
+                params[authColumns[0]] = user_id
+            } else {
+                params.or = authColumns.map(column => column + ".eq." + user_id).join(',')
+            }
 
             if (body) {
                 body.user_id = user.id
