@@ -200,7 +200,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
-        mutateEntities(entities.map(e => e.id == entity.id ? newEntity : e), false)
+        mutateEntities(entities?.map(e => e.id == entity.id ? newEntity : e), false)
 
         // Update the entity via API
         const response = await updateEntity(table, entity.id, entity, fields)
@@ -211,7 +211,7 @@ export function useEntities(table, params = null, swrConfig = null) {
 
     const doDelete = async (id) => {
         // Mutate the entity deletion directly to the parent cache
-        mutateEntities(entities.filter(e => e.id != id), false)
+        mutateEntities(entities?.filter(e => e.id != id), false)
 
         // Delete the entity via API
         const response = await deleteEntity(table, id)
