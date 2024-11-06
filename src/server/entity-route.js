@@ -55,7 +55,6 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
     // Build query
     if (method == 'GET') {
         const { entity, error } = await getEntity(table, entity_id, params)
-        console.log("howdy")
         if (error) return { status: 500, body: { error } }
         if (!entity) return { status: 404, body: { error: { message: 'Resource Not Found' } } }
 
