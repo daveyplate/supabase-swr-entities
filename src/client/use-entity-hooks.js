@@ -3,6 +3,17 @@ import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import { v4 } from "uuid"
 
+/**
+ * Get the locale value from the internationalized data.
+ * @param {object} obj - The internationalized data.
+ * @param {string} locale - The locale.
+ * @param {string} defaultLocale - The default locale.
+ * @returns {string} The localized value.
+ */
+export function getLocaleValue(obj, locale, defaultLocale) {
+    return obj?.[locale] || obj?.[defaultLocale] || obj?.[Object.keys(obj)[0]]
+}
+
 /** 
  * Hook for clearing cache 
  * @returns {() => void} The function to clear the cache
@@ -164,7 +175,7 @@ export function useEntities(table, params = null, swrConfig = null) {
     useEffect(() => {
         // Mutate the individual entities directly to the cache
         entities?.forEach(entity => {
-            const path = apiPath(table, entity.id)
+            const path = apiPath(table, entity.id, params?.lang ? { lang: params.lang } : null)
             mutate(path, entity, false)
         })
     }, [entities])

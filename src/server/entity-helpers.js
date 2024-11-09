@@ -1,9 +1,9 @@
 import path from 'path'
 import { promises as fs } from 'fs'
+import translate from '@iamtraction/google-translate'
 
 import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
-
 import { createClient as createClientPrimitive } from '@supabase/supabase-js'
 
 import defaultSchema from '../schemas/default.schema.json'
@@ -48,9 +48,56 @@ export async function loadEntitySchema(table) {
  * @returns {Promise<object[]>} Entity schemas
  */
 export async function loadEntitySchemas() {
+    if (global.entitySchemas && process.env.NODE_ENV !== 'development') {
+        return global.entitySchemas
+    }
+
     const filePath = path.join(process.cwd(), 'entity.schemas.json');
     const file = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(file)
+
+    global.entitySchemas = JSON.parse(file)
+    return global.entitySchemas
+}
+
+/**
+ * Translate an entity's localized fields using Google Translate
+ * @param {string} table SQL table
+ * @param {object} entity Entity to translate
+ * @param {string} lang Language to translate to
+ */
+export async function translateEntity(table, entity, lang) {
+    const entitySchemas = await loadEntitySchemas()
+    const entitySchema = entitySchemas.find(schema => schema.table === table)
+    const localizedColumns = entitySchema.localizedColumns || []
+
+    const fromLocale = entity.locale
+
+    const translatedFields = {}
+
+    // Translate fields
+    for (const key of localizedColumns) {
+        if (entity[key]?.[fromLocale]) {
+            if (!entity[key][lang]) {
+                let fromLocale = entity.locale
+                let localeValue = entity[key][fromLocale]
+
+                if (!localeValue) {
+                    fromLocale = Object.keys(entity[key])[0]
+                    localeValue = user[key][fromLocale]
+                }
+
+                const translatedValue = await translate(localeValue, { from: fromLocale, to: lang })
+                if (translatedValue.text?.length > 0) {
+                    entity[key][lang] = translatedValue.text
+                    translatedFields[key] = entity[key]
+                }
+            }
+        }
+    }
+
+    if (Object.keys(translatedFields).length > 0) {
+        updateEntity(table, entity.id, translatedFields)
+    }
 }
 
 /**
@@ -62,6 +109,9 @@ export async function loadEntitySchemas() {
  * @returns {Promise<{entity: object?, error: PostgrestError?}>} Entity from the table or error
  */
 export async function getEntity(table, id, params = {}, select = null) {
+    const lang = params?.lang
+    delete params.lang
+
     const { data, error } = await entityQuery(table, "select", {}, { id, ...params }, select)
 
     if (error) {
@@ -69,7 +119,14 @@ export async function getEntity(table, id, params = {}, select = null) {
         return { error }
     }
 
-    return { entity: data?.length > 0 ? data[0] : null }
+    const entity = data?.length > 0 ? data[0] : null
+
+    // Dynamic realtime translation
+    if (entity && lang) {
+        await translateEntity(table, entity, lang)
+    }
+
+    return { entity }
 }
 
 /**
@@ -80,14 +137,31 @@ export async function getEntity(table, id, params = {}, select = null) {
  * @returns {Promise<{entities: object[]?, count: number?, limit: number?, offset: number?, error: PostgrestError?}>} Entities from the table or error
  */
 export async function getEntities(table, params = {}, select = null) {
-    const { data, error, count } = await entityQuery(table, "select", {}, params, select)
+    const lang = params?.lang
+    delete params.lang
+
+    const { data: entities, error, count } = await entityQuery(table, "select", {}, params, select)
 
     if (error) {
         console.error(error)
         return { error }
     }
 
-    return { entities: data, count, limit: params.limit || 100, offset: params.offset || 0 }
+    // Dynamic realtime translation
+    if (lang) {
+        let translationCount = 0
+        for (const entity of entities) {
+            translateEntity(table, entity, lang).then(() => {
+                translationCount++
+            })
+        }
+
+        while (translationCount < entities.length) {
+            await new Promise(resolve => setTimeout(resolve))
+        }
+    }
+
+    return { entities, count, limit: params.limit || 100, offset: params.offset || 0 }
 }
 
 /**
