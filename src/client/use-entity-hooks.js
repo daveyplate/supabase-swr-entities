@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
+import useSWRInfinite from 'swr/infinite'
 import { v4 } from "uuid"
 
 /**
@@ -32,6 +33,71 @@ export function useClearCache() {
  * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
  * @param {string} query - The query to fetch
  * @param {import("swr").SWRConfiguration} config - The SWR config
+ * @param {boolean} infinite - Whether to use infinite scrolling
+ * @returns {import("swr/infinite").SWRInfiniteResponse} The SWR response
+ */
+export function useInfiniteCache(query, config) {
+    const session = useSession()
+    const supabase = useSupabaseClient()
+    const { provider } = useSWRConfig()
+
+    const fetcher = async (url) => {
+        const headers = {}
+        let basePath = ""
+
+        // Use base URL for export
+        if (isExport()) {
+            // Pass session access token
+            if (session) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+
+            if (!url.startsWith("http")) {
+                basePath = process.env.NEXT_PUBLIC_BASE_URL
+            }
+        }
+
+        const res = await fetch(basePath + url, { headers })
+        if (res.ok) {
+            return res.json()
+        } else {
+            if (res.status == 401) {
+                supabase.auth.signOut()
+            }
+
+            if (res.status == 404) {
+                return null
+            }
+
+            throw new Error(res.statusText)
+        }
+    }
+
+    const getKey = (pageIndex, previousPageData) => {
+        if (!provider) return null
+
+        // reached the end
+        if (previousPageData && !previousPageData.data) return null
+
+        // first page, we don't have `previousPageData`
+        if (pageIndex === 0) return query
+
+        const { limit } = previousPageData
+
+        // add the cursor to the API endpoint
+        return query + `&offset=${pageIndex * limit}`
+    }
+
+    const swr = useSWRInfinite(getKey, { fetcher, ...config, revalidateAll: true })
+
+    return { ...swr, isLoading: swr.isLoading || !provider, getKey }
+}
+
+/**
+ * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
+ * @param {string} query - The query to fetch
+ * @param {import("swr").SWRConfiguration} config - The SWR config
+ * @param {boolean} infinite - Whether to use infinite scrolling
  * @returns {import("swr").SWRResponse} The SWR response
  */
 export function useCache(query, config) {
@@ -143,6 +209,7 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
  * @property {(entities: object[], opts: import("swr").mutateOptions) => void} mutateEntities - The function to mutate the entities
  * @typedef {import("swr").SWRResponse & EntitiesResponseType} EntitiesResponse
+ * @typedef {import("swr/infinite").SWRInfiniteResponse & EntitiesResponseType} InfiniteEntitiesResponse
  */
 
 /**
@@ -243,6 +310,176 @@ export function useEntities(table, params = null, swrConfig = null) {
         deleteEntity: doDelete,
         mutate: mutateEntities,
         mutateEntities
+    }
+}
+
+/**
+ * @typedef {object} InfiniteEntitiesResponseType
+ * @property {object[]} entities - The entities
+ * @property {number} count - The total count of entities
+ * @property {number} limit - The limit of entities per page
+ * @property {number} offset - The current offset
+ * @property {boolean} has_more - Whether there are more entities
+ * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
+ * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
+ * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
+ * @property {(entities: object[], opts: import("swr").mutateOptions) => void} mutateEntities - The function to mutate the entities
+ * @typedef {import("swr/infinite").SWRInfiniteResponse & InfiniteEntitiesResponseType} InfiniteEntitiesResponse
+ */
+
+/**
+ * Hook for fetching entities
+ * @param {string} table - The table name
+ * @param {object} params - The query parameters
+ * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
+ * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
+ */
+export function useInfiniteEntities(table, params = null, swrConfig = null) {
+    const path = apiPath(table, null, params)
+    const swrResponse = useInfiniteCache(path, swrConfig)
+    const { data: pages, mutate: mutatePages } = swrResponse
+
+    let has_more = false
+    let offset = 0
+    let limit = params.limit || 100
+    let entities = pages ? [] : null
+
+    // Combine all entities from all pages
+    pages?.forEach((page) => {
+        page.data?.forEach(entity => {
+            // Prevent duplicates
+            if (entities.find(e => e.id == entity.id)) return
+
+            entities.push(entity)
+        })
+
+        limit = page.limit
+        offset = page.offset
+        has_more = page.has_more
+    })
+
+    const count = entities?.length || 0
+
+    const { mutate } = useSWRConfig()
+    const [addEntity, setAddEntity] = useState(null)
+    const updateEntity = useUpdateEntity()
+    const deleteEntity = useDeleteEntity()
+    const createEntity = useCreateEntity()
+    const session = useSession()
+
+    const insertEntity = (entity) => {
+        if (!entity || !pages?.length) return
+
+        console.log("insertEntity", entity)
+
+        // Find the last page and insert the entity there and mutate that using mutatePages
+        const newPages = [...pages]
+        newPages[0].data.push(entity)
+
+        mutatePages([...pages], false)
+    }
+
+    const mutateEntity = (entity) => {
+        if (!entity || !pages) return
+
+        // Find the page that has the entity and update the entity there and mutate that using mutatePages
+        const newPages = pages.map((page) => {
+            page.data = page.data.map((e) => e.id == entity.id ? { ...entity } : e)
+            return page
+        })
+
+        mutatePages(newPages, false)
+    }
+
+    const removeEntity = (id) => {
+        if (!id || !pages) return
+
+        // Find the page that has the entity and remove the entity there and mutate that using mutatePages
+        const newPages = pages.map((page) => {
+            page.data = page.data.filter((e) => e.id != id)
+            return page
+        })
+
+        mutatePages(newPages, false)
+    }
+
+
+    useEffect(() => {
+        // Mutate the individual entities directly to the cache
+        entities?.forEach((entity) => {
+            const path = apiPath(table, entity.id, params?.lang ? { lang: params.lang } : null)
+            mutate(path, entity, false)
+        })
+    }, [pages])
+
+    // Fix for delayed updates
+    /*
+    useEffect(() => {
+        if (!addEntity) return
+        setAddEntity(null)
+        // mutateEntities([...entities?.filter(e => e.id != addEntity.id), addEntity], false)
+    }, [addEntity])
+    */
+
+    const create = async (entity) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
+        // Mutate the new entity directly to the parent cache
+        const newEntity = { ...entity, user_id: session.user.id }
+        if (!newEntity.id) newEntity.id = v4()
+
+        insertEntity(newEntity)
+
+        // Create the entity via API
+        /*
+        const response = await createEntity(table, newEntity)
+        if (response.error) mutatePages()
+        if (response.data?.id) insertEntity(response.data)
+
+        return response
+        */
+    }
+
+    const update = async (entity, fields) => {
+        const newEntity = { ...entity, ...fields }
+
+        // Mutate the entity changes directly to the parent cache
+        // mutateEntities(entities?.map(e => e.id == entity.id ? newEntity : e), false)
+
+        // Update the entity via API
+        const response = await updateEntity(table, entity.id, entity, fields)
+        // if (response.error) mutateEntities()
+
+        return response
+    }
+
+    const doDelete = async (id) => {
+        // Mutate the entity deletion directly to the parent cache
+        // mutateEntities(entities?.filter(e => e.id != id), false)
+
+        // Delete the entity via API
+        const response = await deleteEntity(table, id)
+        if (response.error) mutatePages()
+
+        return response
+    }
+
+    return {
+        ...swrResponse,
+        entities,
+        count,
+        limit,
+        offset,
+        hasMore: has_more,
+        createEntity: create,
+        updateEntity: update,
+        deleteEntity: doDelete,
+        insertEntity,
+        mutateEntity,
+        removeEntity
     }
 }
 
