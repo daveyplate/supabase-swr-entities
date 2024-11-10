@@ -161,7 +161,7 @@ export async function getEntities(table, params = {}, select = null) {
         }
     }
 
-    return { entities, count, limit: params.limit || 100, offset: params.offset || 0 }
+    return { entities, count: parseInt(count), limit: parseInt(params.limit || 100), offset: parseInt(params.offset || 0) }
 }
 
 /**
