@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import useSWRInfinite from 'swr/infinite'
@@ -22,9 +22,9 @@ export function getLocaleValue(obj, locale, defaultLocale) {
 export function useClearCache() {
     const { cache } = useSWRConfig()
 
-    const clearCache = () => {
+    const clearCache = useCallback(() => {
         for (let key of cache.keys()) cache.delete(key)
-    }
+    }, [cache])
 
     return clearCache
 }
@@ -74,7 +74,7 @@ export function useInfiniteCache(query, config) {
         }
     }
 
-    const getKey = (pageIndex, previousPageData) => {
+    const getKey = useCallback((pageIndex, previousPageData) => {
         // reached the end
         if (previousPageData && !previousPageData.data) return null
 
@@ -85,7 +85,7 @@ export function useInfiniteCache(query, config) {
 
         // add the cursor to the API endpoint
         return query + `&offset=${pageIndex * limit}`
-    }
+    }, [query])
 
     const swr = useSWRInfinite(getKey, { fetcher, ...config })
 
@@ -336,17 +336,14 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
     const swrResponse = useInfiniteCache(path, swrConfig)
     const { data: pages, mutate: mutatePages } = swrResponse
 
-    const entities = pages?.map(page => page.data).flat()
+    const entities = useMemo(() => pages?.map(page => page.data).flat()
         .filter((entity, index, self) =>
             index === self.findIndex((t) => (
                 t.id === entity.id
             ))
-        )
+        ), [pages])
 
-    const offset = pages?.[pages.length - 1].offset || 0
-    const limit = pages?.[pages.length - 1].limit || 100
-    const hasMore = pages?.[pages.length - 1].has_more || false
-    const count = pages?.[pages.length - 1].count || 0
+    const { offset, limit, has_more: hasMore, count } = useMemo(() => pages?.[pages.length - 1] || {}, [pages])
 
     const { mutate } = useSWRConfig()
     const updateEntity = useUpdateEntity()
@@ -354,7 +351,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
     const createEntity = useCreateEntity()
     const session = useSession()
 
-    const insertEntity = (entity) => {
+    const insertEntity = useCallback((entity) => {
         if (!entity || !pages?.length) return
 
         // Filter out this entity from all pages
@@ -366,9 +363,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         newPages[0].data.push(entity)
 
         mutatePages(newPages, false)
-    }
+    }, [entities])
 
-    const mutateEntity = (entity) => {
+    const mutateEntity = useCallback((entity) => {
         if (!entity || !pages) return
 
         // Find the page that has the entity and update the entity there and mutate that using mutatePages
@@ -378,9 +375,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         })
 
         mutatePages(newPages, false)
-    }
+    }, [entities])
 
-    const removeEntity = (id) => {
+    const removeEntity = useCallback((id) => {
         if (!id || !pages) return
 
         // Find the page that has the entity and remove the entity there and mutate that using mutatePages
@@ -390,7 +387,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         })
 
         mutatePages(newPages, false)
-    }
+    }, [entities])
 
     useEffect(() => {
         // Mutate the individual entities directly to the cache
@@ -400,7 +397,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         })
     }, [pages])
 
-    const create = async (entity) => {
+    const create = useCallback(async (entity) => {
         if (!session) {
             console.error("User not authenticated")
             return { error: new Error("User not authenticated") }
@@ -418,9 +415,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         if (response.data?.id) insertEntity(response.data)
 
         return response
-    }
+    }, [entities])
 
-    const update = async (entity, fields) => {
+    const update = useCallback(async (entity, fields) => {
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
@@ -431,9 +428,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         if (response.error) mutateEntity(entity)
 
         return response
-    }
+    }, [entities])
 
-    const doDelete = async (id) => {
+    const doDelete = useCallback(async (id) => {
         const entity = entities.find(e => e.id == id)
         if (!entity) return
 
@@ -445,7 +442,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         if (response.error) insertEntity(entity)
 
         return response
-    }
+    }, [entities])
 
     return {
         ...swrResponse,
@@ -471,7 +468,7 @@ export function useCreateEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
-    const createEntity = async (table, entity = {}, params) => {
+    const createEntity = useCallback(async (table, entity = {}, params) => {
         if (!session) {
             console.error("User not authenticated")
             return { error: new Error("User not authenticated") }
@@ -506,7 +503,7 @@ export function useCreateEntity() {
 
         // Return the result
         return { entity: newEntity }
-    }
+    }, [session])
 
     return createEntity
 }
@@ -519,7 +516,7 @@ export function useUpdateEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
-    const updateEntity = async (table, id, entity, fields, params) => {
+    const updateEntity = useCallback(async (table, id, entity, fields, params) => {
         let path = apiPath(table, id, params)
         let newEntity = { ...entity, ...fields }
 
@@ -550,7 +547,7 @@ export function useUpdateEntity() {
         }
 
         return { entity: newEntity }
-    }
+    }, [session])
 
     return updateEntity
 }
@@ -563,7 +560,7 @@ export function useDeleteEntity() {
     const session = useSession()
     const { mutate } = useSWRConfig()
 
-    const deleteEntity = async (table, id, params) => {
+    const deleteEntity = useCallback(async (table, id, params) => {
         const path = apiPath(table, id, params)
 
         // Mutate the entity changes directly to the cache
@@ -580,7 +577,7 @@ export function useDeleteEntity() {
         }
 
         return response
-    }
+    }, [session])
 
     return deleteEntity
 }
@@ -592,7 +589,7 @@ export function useDeleteEntity() {
 export function useUpdateEntities() {
     const session = useSession()
 
-    const updateEntities = async (table, params, fields) => {
+    const updateEntities = useCallback(async (table, params, fields) => {
         const path = apiPath(table, null, params)
 
         // Update the entities via API
@@ -605,7 +602,7 @@ export function useUpdateEntities() {
         }
 
         return response
-    }
+    }, [session])
 
     return updateEntities
 }
@@ -617,7 +614,7 @@ export function useUpdateEntities() {
 export function useDeleteEntities() {
     const session = useSession()
 
-    const deleteEntities = async (table, params) => {
+    const deleteEntities = useCallback(async (table, params) => {
         const path = apiPath(table, null, params)
 
         // Delete the entity via API
@@ -630,7 +627,7 @@ export function useDeleteEntities() {
         }
 
         return response
-    }
+    }, [session])
 
     return deleteEntities
 }
@@ -642,7 +639,7 @@ export function useDeleteEntities() {
 export function useMutateEntities() {
     const { mutate } = useSWRConfig()
 
-    const mutateEntities = (table, params, entities, opts) => {
+    const mutateEntities = useCallback((table, params, entities, opts) => {
         const path = apiPath(table, null, params)
 
         if (entities == undefined) {
@@ -650,7 +647,7 @@ export function useMutateEntities() {
         }
 
         return mutate(path, { data: entities, count: entities.length, limit: 100, offset: 0, has_more: false }, opts)
-    }
+    }, [])
 
     return mutateEntities
 }
@@ -662,7 +659,7 @@ export function useMutateEntities() {
 export function useMutateEntity() {
     const { mutate } = useSWRConfig()
 
-    const mutateEntity = (table, id, entity) => {
+    const mutateEntity = useCallback((table, id, entity) => {
         const path = apiPath(table, id)
 
         if (entity == undefined) {
@@ -670,7 +667,7 @@ export function useMutateEntity() {
         }
 
         return mutate(path, entity, false)
-    }
+    }, [])
 
     return mutateEntity
 }
