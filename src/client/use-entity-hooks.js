@@ -479,7 +479,10 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await createEntity(table, newEntity)
         if (response.error) removeEntity(newEntity.id)
         if (response.entity) {
-            sendData({ action: "create_entity", data: response.entity })
+            if (options?.realtime == "peerjs") {
+                sendData({ action: "create_entity", data: response.entity })
+            }
+
             insertEntity(response.entity)
         }
 
@@ -494,7 +497,11 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
 
         // Update the entity via API
         const response = await updateEntity(table, entity.id, entity, fields)
-        if (response.error) mutateEntity(entity)
+        if (response.error) {
+            mutateEntity(entity)
+        } else if (options?.realtime == "peerjs") {
+            sendData({ action: "update_entity", data: response.entity })
+        }
 
         return response
     }, [entities])
@@ -510,7 +517,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await deleteEntity(table, id)
         if (response.error) {
             insertEntity(entity)
-        } else {
+        } else if (options?.realtime == "peerjs") {
             sendData({ action: "delete_entity", data: { id } })
         }
 
