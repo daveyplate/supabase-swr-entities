@@ -3,6 +3,7 @@ import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import useSWRInfinite from 'swr/infinite'
 import { v4 } from "uuid"
+import { usePeers } from "./use-peers"
 
 /**
  * Get the locale value from the internationalized data.
@@ -268,7 +269,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         // Create the entity via API
         const response = await createEntity(table, newEntity)
         if (response.error) mutateEntities()
-        if (response.data?.id) setAddEntity(response.data)
+        if (response.entity) setAddEntity(response.entity)
 
         return response
     }, [entities])
@@ -328,14 +329,60 @@ export function useEntities(table, params = null, swrConfig = null) {
  * @typedef {import("swr/infinite").SWRInfiniteResponse & InfiniteEntitiesResponseType} InfiniteEntitiesResponse
  */
 
+
+function usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity) {
+    const onData = useCallback((data, connection, peer) => {
+        if (!peer) return
+
+        options.onData && options.onData(data, connection, peer)
+
+        switch (data.action) {
+            case "create_entity": {
+                const entity = data.data
+                if (!entity) return
+
+                // Don't allow invalid messages from invalid peers
+                if (entity.user_id != peer.user_id) return
+
+                insertEntity({ ...entity, user: peer.user })
+                break
+            }
+            case "update_entity": {
+                const { id, fields } = data.data
+                const entity = entities.find((entity) => entity.id == id)
+                if (entity?.user_id != peer.user_id) return
+
+                mutateEntity({ ...entity, ...fields })
+                break
+            }
+            case "delete_entity": {
+                const { id } = data.data
+                const entity = entities.find((entity) => entity.id == id)
+                if (entity?.user_id != peer.user_id) return
+
+                removeEntity(id)
+                break
+            }
+        }
+    }, [entities, options])
+
+    return usePeers({
+        enabled: options?.realtime == "peerjs",
+        onData,
+        room: `${table}`
+    })
+}
+
+
 /**
  * Hook for fetching entities with infinite scrolling support
  * @param {string} table - The table name
- * @param {object} params - The query parameters
- * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
+ * @param {object} [params] - The query parameters
+ * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
+ * @param {object} [options] - The query parameters
  * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
  */
-export function useInfiniteEntities(table, params = null, swrConfig = null) {
+export function useInfiniteEntities(table, params = null, swrConfig = null, options = null) {
     const path = apiPath(table, null, params)
     const swrResponse = useInfiniteCache(path, swrConfig)
     const { data: pages, mutate: mutatePages, isValidating } = swrResponse
@@ -431,7 +478,10 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         // Create the entity via API
         const response = await createEntity(table, newEntity)
         if (response.error) removeEntity(newEntity.id)
-        if (response.data?.id) insertEntity(response.data)
+        if (response.entity) {
+            sendData({ action: "create_entity", data: response.entity })
+            insertEntity(response.entity)
+        }
 
         return response
     }, [entities])
@@ -458,10 +508,16 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
 
         // Delete the entity via API
         const response = await deleteEntity(table, id)
-        if (response.error) insertEntity(entity)
+        if (response.error) {
+            insertEntity(entity)
+        } else {
+            sendData({ action: "delete_entity", data: { id } })
+        }
 
         return response
     }, [entities])
+
+    const { sendData, isOnline } = usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity)
 
     return {
         ...swrResponse,
@@ -470,6 +526,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null) {
         limit,
         offset,
         hasMore,
+        isOnline,
+        sendData,
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,
