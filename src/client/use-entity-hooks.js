@@ -348,7 +348,7 @@ function usePeerJS(table, params, options, entities, insertEntity, mutateEntity,
                 break
             }
             case "update_entity": {
-                const { id, fields } = data.data
+                const { id, ...fields } = data.data
                 const entity = entities.find((entity) => entity.id == id)
                 if (entity?.user_id != peer.user_id) return
 
@@ -521,8 +521,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
             sendData({ action: "delete_entity", data: { id } })
         }
 
+
         return response
-    }, [entities])
+    }, [entities, removeEntity])
 
     const { sendData, isOnline } = usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity)
 
@@ -651,13 +652,15 @@ export function useDeleteEntity() {
         mutate(path, null, false)
 
         // Delete the entity via API
-        const { error, ...response } = await deleteAPI(session, path)
+        const response = await deleteAPI(session, path)
+
+        if (!response) return { error: new Error("Entity not found") }
 
         // Log and return any errors
-        if (error) {
-            console.error(error)
+        if (response.error) {
+            console.error(response.error)
             mutate(path)
-            return { error }
+            return { error: response.error }
         }
 
         return response
