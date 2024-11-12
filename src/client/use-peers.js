@@ -1,17 +1,20 @@
-import { useEntities } from "@daveyplate/supabase-swr-entities/client"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import Peer, { DataConnection } from "peerjs"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEntities } from "@daveyplate/supabase-swr-entities/client"
 
 /**
  * Peer Connections hook
  * @param {Object} props - The hook props
- * @param {boolean} [props.enabled=false] - Is the hook enabled
+ * @param {boolean} [props.enabled=true] - Is the hook enabled
  * @param {(data: any, connection: DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
  * @param {string} [props.room=null] - The room to connect to
  * @param {string} [props.peerLimiter=null] - The column to filter which peer ID to send to
+ * @param {string[]} [props.allowedUsers=["*"]] - The users allowed to send data to
  * @returns {{ peers: any[], sendData: (data: any) => void, connections: DataConnection[], isOnline: (userId: string) => boolean, getPeer: (connection: DataConnection) => any, getConnection: (userId: string) => DataConnection}} The hook result
  */
-export function usePeers({ enabled = false, onData = null, room = null, peerLimiter = null }) {
+export function usePeers({ enabled = true, onData = null, room = null, peerLimiter = null, allowedUsers = ["*"] }) {
+    const [_, forceUpdate] = useReducer(x => x + 1, 0)
+
     const {
         entities: peers,
         createEntity: createPeer,
@@ -21,9 +24,27 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
     } = useEntities(enabled && 'peers', { room })
 
     const [peer, setPeer] = useState(null)
-    const [connections, setConnections] = useState([])
     const connectionsRef = useRef([])
     const connectionAttempts = useRef([])
+    const dataQueue = useRef([])
+
+    // Data queue for when we need reload for missing peers
+    useEffect(() => {
+        if (!peers) return
+
+        const newDataQueue = []
+        dataQueue.current.forEach(({ data, connection }) => {
+            const peer = getPeer(connection)
+            if (!peer) {
+                newDataQueue.push({ data, connection })
+                return
+            }
+
+            onData(data, connection, peer)
+        })
+
+        dataQueue.current = newDataQueue
+    }, [peers])
 
     /**
      * Prepare connection handlers
@@ -35,7 +56,17 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
 
         onData && connection?.on("data", (data) => {
             const peer = getPeer(connection)
-            onData(data, connection, peer)
+            if (!peer) {
+                dataQueue.current.push({ data, connection })
+                return
+            }
+
+            if (allowedUsers.includes("*") || allowedUsers.includes(peer?.user_id)) {
+                onData(data, connection, peer)
+            } else {
+                console.log("Unauthorized data from", peer)
+                connection.close()
+            }
         })
 
         connection?.on("open", () => {
@@ -43,7 +74,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionsRef.current.push(connection)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
-            setConnections(connectionsRef.current)
+            forceUpdate()
 
             if (inbound) {
                 mutatePeers()
@@ -54,14 +85,14 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
             console.log("connection closed")
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
-            setConnections(connectionsRef.current)
+            forceUpdate()
         })
 
         connection?.on('error', (error) => {
             console.error("connection error", error)
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
-            setConnections(connectionsRef.current)
+            forceUpdate()
         })
     }
 
@@ -71,7 +102,6 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
 
         const deletePeerOnUnload = () => {
             connectionsRef.current.forEach((conn) => conn.close())
-            setConnections([])
             connectionsRef.current = []
             connectionAttempts.current = []
             peer?.id && deletePeer(peer.id)
@@ -84,7 +114,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
             deletePeerOnUnload()
             window.removeEventListener("beforeunload", deletePeerOnUnload)
         }
-    }, [peer])
+    }, [peer, room, enabled])
 
     useEffect(() => {
         if (!enabled) return
@@ -123,11 +153,12 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
             if (p.id == peer.id) return
             if (connectionsRef.current.some((c) => c.peer == p.id)) return
             if (connectionAttempts.current.includes(p.id)) return
-
-            console.log("connection attempt", p.id)
-            connectionAttempts.current.push(p.id)
-            const conn = peer.connect(p.id)
-            handleConnection(conn)
+            if (allowedUsers.includes("*") || allowedUsers.includes(p?.user_id)) {
+                console.log("connection attempt", p.id)
+                connectionAttempts.current.push(p.id)
+                const conn = peer.connect(p.id)
+                handleConnection(conn)
+            }
         })
 
         connectionsRef.current.forEach((conn) => {
@@ -138,7 +169,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
             clearInterval(interval)
             peer.off("connection", inboundConnection)
         }
-    }, [peers, peer, connections, onData])
+    }, [peers, peer, onData, connectionsRef.current])
 
 
     useEffect(() => {
@@ -156,7 +187,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
         return () => {
             newPeer.destroy()
         }
-    }, [enabled])
+    }, [enabled, room])
 
     /**
      * Send data to all connections
@@ -164,17 +195,21 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
      */
     const sendData = useCallback((data) => {
         connectionsRef.current.forEach((connection) => {
+            const peer = getPeer(connection)
+
             if (peerLimiter) {
                 const recipientId = data.data[peerLimiter]
                 if (!recipientId) return
 
-                const peer = getPeer(connection)
                 if (peer?.user_id != recipientId) return
             }
 
-            connection.send(data)
+            if (allowedUsers.includes("*") || allowedUsers.includes(peer?.user_id)) {
+                connection.send(data)
+            }
+
         })
-    }, [peers, peerLimiter, connections])
+    }, [peers, peerLimiter, connectionsRef.current])
 
     /**
      * Get the peer for a connection
@@ -183,7 +218,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
      */
     const getPeer = useCallback((connection) => {
         return peers?.find((peer) => peer.id == connection?.peer)
-    }, [peers])
+    }, [peers, connectionsRef.current])
 
     /**
      * Get the connection for a user
@@ -197,7 +232,7 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
         })
 
         return connection
-    }, [connections, peers])
+    }, [peers, connectionsRef.current])
 
     /** 
      * Check if a user is online
@@ -208,5 +243,5 @@ export function usePeers({ enabled = false, onData = null, room = null, peerLimi
         return !!getConnection(userId)
     }, [getConnection])
 
-    return { peers, sendData, connections, isOnline, getPeer, getConnection }
+    return { peers, sendData, connections: connectionsRef.current, isOnline, getPeer, getConnection }
 }

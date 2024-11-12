@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import useSWR, { useSWRConfig } from "swr"
 import useSWRInfinite from 'swr/infinite'
@@ -330,10 +330,8 @@ export function useEntities(table, params = null, swrConfig = null) {
  */
 
 
-function usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity) {
+function usePeerJS({ table, params, options, entities, insertEntity, mutateEntity, removeEntity, room }) {
     const onData = useCallback((data, connection, peer) => {
-        if (!peer) return
-
         options.onData && options.onData(data, connection, peer)
 
         switch (data.action) {
@@ -369,9 +367,10 @@ function usePeerJS(table, params, options, entities, insertEntity, mutateEntity,
     return usePeers({
         enabled: options?.realtime == "peerjs",
         onData,
-        room: `${table}`,
+        room: `${room || table}`,
         peerLimiter: options?.peerLimiter
     })
+
 }
 
 
@@ -384,10 +383,18 @@ function usePeerJS(table, params, options, entities, insertEntity, mutateEntity,
  * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
  */
 export function useInfiniteEntities(table, params = null, swrConfig = null, options = null) {
+    const session = useSession()
+    const updateEntity = useUpdateEntity()
+    const deleteEntity = useDeleteEntity()
+    const createEntity = useCreateEntity()
+    const { mutate } = useSWRConfig()
+
+    // Load the entity pages using SWR
     const path = apiPath(table, null, params)
     const swrResponse = useInfiniteCache(path, swrConfig)
     const { data: pages, mutate: mutatePages, isValidating } = swrResponse
 
+    // Memoize the merged pages into entities
     const entities = useMemo(() => pages?.map(page => page.data).flat()
         .filter((entity, index, self) =>
             index === self.findIndex((t) => (
@@ -395,29 +402,27 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
             ))
         ), [pages])
 
+    // Set the other vars from the final page
     const { offset, limit, has_more: hasMore, count } = useMemo(() => pages?.[pages.length - 1] || {}, [pages])
 
-    const { mutate } = useSWRConfig()
-    const updateEntity = useUpdateEntity()
-    const deleteEntity = useDeleteEntity()
-    const createEntity = useCreateEntity()
-    const session = useSession()
+    // Initialize sendData variable
     let sendData
 
     const insertEntity = useCallback((entity) => {
         if (!entity || !pages?.length) return
 
-        // Filter out this entity from all pages
+        // Filter out this entity from all pages to prevent duplicates
         const newPages = JSON.parse(JSON.stringify(pages))
         newPages.forEach((page) => {
             page.data = page.data.filter((e) => e.id != entity.id)
         })
 
+        // Add the entity to the first page
         newPages[0].data.push(entity)
 
         mutateChildren([entity])
         mutatePages(newPages, false)
-    }, [entities])
+    }, [pages])
 
     const mutateEntity = useCallback((entity) => {
         if (!entity || !pages) return
@@ -430,7 +435,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
 
         mutateChildren([entity])
         mutatePages(newPages, false)
-    }, [entities])
+    }, [pages])
 
     const removeEntity = useCallback((id) => {
         if (!id || !pages) return
@@ -442,7 +447,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         })
 
         mutatePages(newPages, false)
-    }, [entities])
+    }, [pages])
 
     // Mutate the individual entities directly to the cache
     const mutateChildren = useCallback((entities) => {
@@ -481,7 +486,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await createEntity(table, newEntity)
         if (response.error) removeEntity(newEntity.id)
         if (response.entity) {
-            if (options?.realtime == "peerjs") {
+            if (options?.realtime == "peerjs" && !options?.listenOnly) {
                 sendData({ action: "create_entity", data: response.entity })
             }
 
@@ -489,7 +494,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         }
 
         return response
-    }, [entities, session, sendData])
+    }, [pages, session, sendData])
 
     const update = useCallback(async (entity, fields) => {
         if (!session) {
@@ -506,12 +511,12 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await updateEntity(table, entity.id, entity, fields)
         if (response.error) {
             mutateEntity(entity)
-        } else if (options?.realtime == "peerjs") {
+        } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
             sendData({ action: "update_entity", data: response.entity })
         }
 
         return response
-    }, [entities, session, sendData])
+    }, [pages, session, sendData])
 
     const doDelete = useCallback(async (id) => {
         if (!session) {
@@ -529,16 +534,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await deleteEntity(table, id)
         if (response.error) {
             insertEntity(entity)
-        } else if (options?.realtime == "peerjs") {
+        } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
             const data = { id }
             if (options.peerLimiter) data[options.peerLimiter] = entity[options.peerLimiter]
-            data[options.peerLimiter] && sendData({ action: "delete_entity", data })
+
+            sendData({ action: "delete_entity", data })
         }
 
         return response
-    }, [entities, removeEntity, session, sendData])
+    }, [pages, session, sendData])
 
-    const peerJs = usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity)
+    const peerJs = usePeerJS({ table, params, options, entities, insertEntity, mutateEntity, removeEntity, room: options?.room })
     sendData = peerJs.sendData
     const isOnline = peerJs.isOnline
 
