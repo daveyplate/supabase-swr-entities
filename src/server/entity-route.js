@@ -37,7 +37,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
     const authorize = entitySchema.authMethods.find((authMethod) => authMethod == METHOD_MAP[method] || authMethod == '*')
 
     if (authorize || admin || (entitySchema.hasMe && entity_id == 'me')) {
-        const { error } = await authorizeParams(supabase, headers, params, entitySchema, admin)
+        const { error } = await authorizeParams(supabase, method, headers, params, entitySchema, admin)
         if (error) return { status: 401, body: { error } }
     }
 

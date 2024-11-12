@@ -272,7 +272,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         if (response.entity) setAddEntity(response.entity)
 
         return response
-    }, [entities])
+    }, [entities, session])
 
     const update = useCallback(async (entity, fields) => {
         const newEntity = { ...entity, ...fields }
@@ -285,7 +285,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         if (response.error) mutateEntities()
 
         return response
-    }, [entities])
+    }, [entities, session])
 
     const doDelete = useCallback(async (id) => {
         // Mutate the entity deletion directly to the parent cache
@@ -296,7 +296,7 @@ export function useEntities(table, params = null, swrConfig = null) {
         if (response.error) mutateEntities()
 
         return response
-    }, [entities])
+    }, [entities, session])
 
     return {
         ...swrResponse,
@@ -369,7 +369,8 @@ function usePeerJS(table, params, options, entities, insertEntity, mutateEntity,
     return usePeers({
         enabled: options?.realtime == "peerjs",
         onData,
-        room: `${table}`
+        room: `${table}`,
+        peerLimiter: options?.peerLimiter
     })
 }
 
@@ -379,7 +380,7 @@ function usePeerJS(table, params, options, entities, insertEntity, mutateEntity,
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
  * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
- * @param {object} [options] - The query parameters
+ * @param {object} [options] - The hook options
  * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
  */
 export function useInfiniteEntities(table, params = null, swrConfig = null, options = null) {
@@ -401,6 +402,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
     const deleteEntity = useDeleteEntity()
     const createEntity = useCreateEntity()
     const session = useSession()
+    let sendData
 
     const insertEntity = useCallback((entity) => {
         if (!entity || !pages?.length) return
@@ -487,9 +489,14 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         }
 
         return response
-    }, [entities])
+    }, [entities, session, sendData])
 
     const update = useCallback(async (entity, fields) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
@@ -504,9 +511,14 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         }
 
         return response
-    }, [entities])
+    }, [entities, session, sendData])
 
     const doDelete = useCallback(async (id) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         const entity = entities.find(e => e.id == id)
         if (!entity) return
 
@@ -518,14 +530,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         if (response.error) {
             insertEntity(entity)
         } else if (options?.realtime == "peerjs") {
-            sendData({ action: "delete_entity", data: { id } })
+            const data = { id }
+            if (options.peerLimiter) data[options.peerLimiter] = entity[options.peerLimiter]
+            data[options.peerLimiter] && sendData({ action: "delete_entity", data })
         }
 
-
         return response
-    }, [entities, removeEntity])
+    }, [entities, removeEntity, session, sendData])
 
-    const { sendData, isOnline } = usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity)
+    const peerJs = usePeerJS(table, params, options, entities, insertEntity, mutateEntity, removeEntity)
+    sendData = peerJs.sendData
+    const isOnline = peerJs.isOnline
 
     return {
         ...swrResponse,

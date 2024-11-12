@@ -8,9 +8,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
  * @param {boolean} [props.enabled=false] - Is the hook enabled
  * @param {(data: any, connection: DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
  * @param {string} [props.room=null] - The room to connect to
+ * @param {string} [props.peerLimiter=null] - The column to filter which peer ID to send to
  * @returns {{ peers: any[], sendData: (data: any) => void, connections: DataConnection[], isOnline: (userId: string) => boolean, getPeer: (connection: DataConnection) => any, getConnection: (userId: string) => DataConnection}} The hook result
  */
-export function usePeers({ enabled = false, onData = null, room = null }) {
+export function usePeers({ enabled = false, onData = null, room = null, peerLimiter = null }) {
     const {
         entities: peers,
         createEntity: createPeer,
@@ -162,8 +163,18 @@ export function usePeers({ enabled = false, onData = null, room = null }) {
      * @param {any} data - The data to send
      */
     const sendData = useCallback((data) => {
-        connectionsRef.current.forEach((conn) => conn.send(data))
-    }, [])
+        connectionsRef.current.forEach((connection) => {
+            if (peerLimiter) {
+                const recipientId = data.data[peerLimiter]
+                if (!recipientId) return
+
+                const peer = getPeer(connection)
+                if (peer?.user_id != recipientId) return
+            }
+
+            connection.send(data)
+        })
+    }, [peers, peerLimiter, connections])
 
     /**
      * Get the peer for a connection
@@ -171,7 +182,7 @@ export function usePeers({ enabled = false, onData = null, room = null }) {
      * @returns {any} The peer
      */
     const getPeer = useCallback((connection) => {
-        return peers.find((peer) => peer.id == connection?.peer)
+        return peers?.find((peer) => peer.id == connection?.peer)
     }, [peers])
 
     /**
@@ -180,8 +191,8 @@ export function usePeers({ enabled = false, onData = null, room = null }) {
      * @returns {DataConnection} The connection
      */
     const getConnection = useCallback((userId) => {
-        const connection = connections.find((connection) => {
-            const connectionPeer = peers.find((peer) => peer.id == connection.peer)
+        const connection = connectionsRef.current.find((connection) => {
+            const connectionPeer = getPeer(connection)
             return connectionPeer?.user_id == userId
         })
 

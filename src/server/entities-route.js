@@ -43,7 +43,7 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
     }
 
     if (authorize || admin) {
-        const { user, error } = await authorizeParams(supabase, headers, params, entitySchema, admin)
+        const { user, error } = await authorizeParams(supabase, method, headers, params, entitySchema, admin)
         if (error) return { status: 401, body: { error } }
 
         // Add user_id to post body if not admin or not set

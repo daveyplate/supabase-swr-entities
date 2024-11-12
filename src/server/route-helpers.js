@@ -44,13 +44,14 @@ export async function authorizeUser(supabase, headers) {
 /** 
  * Authorize a user based on the request headers
  * @param {SupabaseClient} supabase - Supabase client
+ * @param {("GET"|"POST"|"PATCH"|"DELETE")} method - Request method
  * @param {object} headers - Request headers
  * @param {object} params - Request query parameters
  * @param {object} entitySchema - Entity schema
  * @param {boolean} [admin=false] - Admin authorization
  * @returns {Promise<{user: import("@supabase/auth-js").User?, error: Error?}>} User or error
  */
-export async function authorizeParams(supabase, headers, params, entitySchema, admin = false) {
+export async function authorizeParams(supabase, method, headers, params, entitySchema, admin = false) {
     const { user, error } = await authorizeUser(supabase, headers)
     if (error) return { error }
 
