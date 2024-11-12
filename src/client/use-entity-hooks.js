@@ -330,49 +330,6 @@ export function useEntities(table, params = null, swrConfig = null) {
  */
 
 
-function usePeerJS({ table, params, options, entities, insertEntity, mutateEntity, removeEntity, room }) {
-    const onData = useCallback((data, connection, peer) => {
-        options.onData && options.onData(data, connection, peer)
-
-        switch (data.action) {
-            case "create_entity": {
-                const entity = data.data
-                if (!entity) return
-
-                // Don't allow invalid messages from invalid peers
-                if (entity.user_id != peer.user_id) return
-
-                insertEntity({ ...entity, user: peer.user })
-                break
-            }
-            case "update_entity": {
-                const { id, ...fields } = data.data
-                const entity = entities.find((entity) => entity.id == id)
-                if (entity?.user_id != peer.user_id) return
-
-                mutateEntity({ ...entity, ...fields })
-                break
-            }
-            case "delete_entity": {
-                const { id } = data.data
-                const entity = entities.find((entity) => entity.id == id)
-                if (entity?.user_id != peer.user_id) return
-
-                removeEntity(id)
-                break
-            }
-        }
-    }, [entities, options])
-
-    return usePeers({
-        enabled: options?.realtime == "peerjs",
-        onData,
-        room: `${room || table}`,
-        peerLimiter: options?.peerLimiter
-    })
-
-}
-
 
 /**
  * Hook for fetching entities with infinite scrolling support
@@ -487,7 +444,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         if (response.error) removeEntity(newEntity.id)
         if (response.entity) {
             if (options?.realtime == "peerjs" && !options?.listenOnly) {
-                sendData({ action: "create_entity", data: response.entity })
+                sendData({ action: "create_entity" })
             }
 
             insertEntity(response.entity)
@@ -512,7 +469,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         if (response.error) {
             mutateEntity(entity)
         } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
-            sendData({ action: "update_entity", data: response.entity })
+            sendData({ action: "update_entity" })
         }
 
         return response
@@ -535,18 +492,24 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         if (response.error) {
             insertEntity(entity)
         } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
-            const data = { id }
-            if (options.peerLimiter) data[options.peerLimiter] = entity[options.peerLimiter]
-
-            sendData({ action: "delete_entity", data })
+            sendData({ action: "delete_entity" })
         }
 
         return response
     }, [pages, session, sendData])
 
-    const peerJs = usePeerJS({ table, params, options, entities, insertEntity, mutateEntity, removeEntity, room: options?.room })
-    sendData = peerJs.sendData
-    const isOnline = peerJs.isOnline
+    const onData = useCallback(() => {
+        mutatePages()
+    }, [mutatePages])
+
+    const peersHook = usePeers({
+        enabled: options?.realtime == "peerjs",
+        onData,
+        room: `${options?.room || table}`
+    })
+
+    sendData = peersHook.sendData
+    const isOnline = peersHook.isOnline
 
     return {
         ...swrResponse,
