@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import Peer, { DataConnection } from "peerjs"
-import { useEntities } from "@daveyplate/supabase-swr-entities/client"
 import { v4 } from "uuid"
+
+import { useEntities } from "./use-entity-hooks"
 
 /**
  * Peer Connections hook
@@ -60,12 +61,15 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
     const handleConnection = (connection, inbound = false) => {
         connection?.removeAllListeners()
 
+        // Handle incoming data and store it in the data queue
         onData && connection?.on("data", (data) => {
-            setDataQueue((prevQueue) => [...prevQueue, { data, connection }])
+            setDataQueue([...dataQueue, { data, connection }])
         })
 
         connection?.on("open", () => {
             console.log("connection opened", room)
+
+            // Add the connection to the list
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionsRef.current.push(connection)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
@@ -79,6 +83,8 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
 
         connection?.on('close', () => {
             console.log("connection closed")
+
+            // Remove the connection from the list
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
             forceUpdate()
@@ -86,6 +92,8 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
 
         connection?.on('error', (error) => {
             console.error("connection error", error)
+
+            // Remove the connection from the list
             connectionsRef.current = connectionsRef.current.filter((conn) => conn.peer != connection.peer)
             connectionAttempts.current = connectionAttempts.current.filter((id) => id != connection.peer)
             forceUpdate()
@@ -97,7 +105,27 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
         }, 10000)
     }
 
-    // Clean up the peer on unmount
+    // Create Peer instance
+    useEffect(() => {
+        if (!enabled || !room) return
+
+        // Create a new Peer instance
+        const newPeer = new Peer(v4())
+        newPeer.on('open', (id) => {
+            console.log('Peer ID', id, 'Room', room)
+            setPeer(newPeer)
+        })
+
+        // newPeer.on('error', console.error)
+
+        return () => {
+            newPeer.removeAllListeners()
+            newPeer.on('open', () => newPeer.destroy())
+        }
+    }, [enabled, room])
+
+
+    // Clean up the peer on unload
     useEffect(() => {
         if (!enabled || !room || !peer) return
 
@@ -119,27 +147,16 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
         }
     }, [enabled, room, peer])
 
+    // Handle peer connections
     useEffect(() => {
-        if (!enabled || !room) return
+        if (!peer?.id || !peers || !enabled || !room) return
 
-        // Create a new Peer instance
-        const newPeer = new Peer(v4())
-        newPeer.on('open', (id) => {
-            console.log('Peer ID', id, 'Room', room)
-            setPeer(newPeer)
-        })
-
-        // newPeer.on('error', console.error)
-
-        return () => {
-            newPeer.removeAllListeners()
-            newPeer.on('open', () => newPeer.destroy())
+        // Create the peer entity
+        if (!peers.find((p) => p.id == peer.id)) {
+            createPeer({ id: peer.id, room })
         }
-    }, [enabled, room])
 
-    useEffect(() => {
-        if (!peer?.id || !peers || !enabled) return
-
+        // Keep the peer entity current every 60 seconds
         const keepPeerCurrent = () => {
             const currentPeer = peers.find((p) => p.id == peer.id)
             if (currentPeer) {
@@ -151,25 +168,23 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
 
         const interval = setInterval(keepPeerCurrent, 60000)
 
-        if (!peers.find(p => p.id == peer.id)) {
-            createPeer({ id: peer.id, room })
-        }
-
+        // Handle inbound connections
         const inboundConnection = (conn) => {
             handleConnection(conn, true)
         }
 
         peer.on("connection", inboundConnection)
 
-        peers.forEach(p => {
+        // Connect to all peers
+        peers.forEach((p) => {
             if (p.id == peer.id) return
-            if (connectionsRef.current.some((c) => c.peer == p.id)) return
+            if (connectionsRef.current.some((connection) => connection.peer == p.id)) return
             if (connectionAttempts.current.includes(p.id)) return
-            if (allowedUsers.includes("*") || allowedUsers.includes(p?.user_id)) {
-                connectionAttempts.current.push(p.id)
-                const conn = peer.connect(p.id)
-                handleConnection(conn)
-            }
+            if (!allowedUsers.includes("*") && !allowedUsers.includes(p?.user_id)) return
+
+            connectionAttempts.current.push(p.id)
+            const conn = peer.connect(p.id)
+            handleConnection(conn)
         })
 
         connectionsRef.current.forEach((conn) => {
@@ -180,7 +195,7 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
             clearInterval(interval)
             peer.off("connection", inboundConnection)
         }
-    }, [peers, peer, onData, connectionsRef.current, JSON.stringify(allowedUsers)])
+    }, [enabled, room, peers, peer, onData, connectionsRef.current, JSON.stringify(allowedUsers)])
 
     /**
      * Send data to all connections
@@ -188,7 +203,9 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
      * @param {DataConnection[]} [connections] - Limit the connections to send to
      */
     const sendData = useCallback((data, connections = null) => {
+        // Store the data in messageHistory for 10 seconds so we can send it on connection
         messageHistory.current.push(data)
+
         setTimeout(() => {
             messageHistory.current = messageHistory.current.filter((d) => d != data)
         }, 10000)
@@ -202,7 +219,6 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
             })
     }, [peers, connectionsRef.current, JSON.stringify(allowedUsers)])
 
-
     /**
      * Get the peer for a connection
      * @param {DataConnection} connection - The connection
@@ -212,9 +228,14 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
         return peers?.find((peer) => peer.id == connection?.peer)
     }, [peers, connectionsRef.current])
 
+    /**
+     * Send message history to a connection
+     * @param {DataConnection} connection - The connection
+     */
     const sendMessageHistory = useCallback((connection) => {
-        const peer = getPeer(connection)
-        if (allowedUsers.includes("*") || allowedUsers.includes(peer?.user_id)) {
+        const connectionPeer = getPeer(connection)
+
+        if (allowedUsers.includes("*") || allowedUsers.includes(connectionPeer?.user_id)) {
             messageHistory.current.forEach(data => {
                 console.log("sending message history", data)
                 connection.send(data)
