@@ -717,7 +717,7 @@ export function useMutateEntities() {
             return mutate(path)
         }
 
-        return mutate(path, { data: entities, count: entities.length, limit: 100, offset: 0, has_more: false }, opts)
+        return mutate(path, { data: entities, count: params?.count || entities.length, limit: params?.limit || 100, offset: params?.offset || 0, has_more: params?.has_more || false }, opts)
     }, [])
 
     return mutateEntities
