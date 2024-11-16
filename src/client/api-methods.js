@@ -13,7 +13,7 @@ export async function postAPI(session, path, params) {
 
     return fetch(url, {
         method: 'POST',
-        headers: isExport() ? {
+        headers: (isExport() && session) ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' },
@@ -34,7 +34,7 @@ export async function patchAPI(session, path, params) {
 
     return fetch(url, {
         method: 'PATCH',
-        headers: isExport() ? {
+        headers: (isExport() && session) ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' },
@@ -55,7 +55,7 @@ export async function deleteAPI(session, path) {
 
     return fetch(url, {
         method: 'DELETE',
-        headers: isExport() ? {
+        headers: (isExport() && session) ? {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
         } : { 'Content-Type': 'application/json' }

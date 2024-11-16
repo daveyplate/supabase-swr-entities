@@ -1,4 +1,4 @@
-import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
+import { SupabaseClient, PostgrestError, User } from '@supabase/supabase-js'
 
 import { createAdminClient } from "./entity-helpers"
 
@@ -13,7 +13,7 @@ export const METHOD_MAP = {
  * Authorize a user based on the request headers
  * @param {SupabaseClient} supabase - Supabase client
  * @param {object} headers - Request headers
- * @returns {Promise<{user: import("@supabase/auth-js").User?, error: PostgrestError?}>} User or error
+ * @returns {Promise<{user: User?, error: PostgrestError?}>} User or error
  */
 export async function authorizeUser(supabase, headers) {
     const supabaseAdmin = createAdminClient()
@@ -49,7 +49,7 @@ export async function authorizeUser(supabase, headers) {
  * @param {object} params - Request query parameters
  * @param {object} entitySchema - Entity schema
  * @param {boolean} [admin=false] - Admin authorization
- * @returns {Promise<{user: import("@supabase/auth-js").User?, error: Error?}>} User or error
+ * @returns {Promise<{user: User?, error: Error?}>} User or error
  */
 export async function authorizeParams(supabase, method, headers, params, entitySchema, admin = false) {
     const { user, error } = await authorizeUser(supabase, headers)

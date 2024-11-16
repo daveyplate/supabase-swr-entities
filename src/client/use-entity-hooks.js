@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useCallback } from "react"
+import { SWRResponse, MutatorOptions, SWRConfiguration } from "swr"
+import { SWRInfiniteResponse } from "swr/infinite"
 import { useSession } from "@supabase/auth-helpers-react"
-import { useSWRConfig } from "swr"
 import { v4 } from "uuid"
-import { usePeers } from "./use-peers"
-import { DataConnection } from "peerjs"
+
+import { usePeers, PeersResult } from "./use-peers"
 import { apiPath } from "./client-utils"
-import { useCreateEntity, useDeleteEntity, useUpdateEntity } from "./use-entity-helpers"
+import { useCreateEntity, useDeleteEntity, useMutateEntity, useUpdateEntity } from "./use-entity-helpers"
 import { useCache, useInfiniteCache } from "./use-cache-hooks"
 
 /**
@@ -13,48 +14,54 @@ import { useCache, useInfiniteCache } from "./use-cache-hooks"
  * @property {object} entity - The entity
  * @property {(fields: object) => Promise<{error: Error, entity: object}>} updateEntity - The function to update the entity
  * @property {() => Promise<{error: Error}>} deleteEntity - The function to delete the entity
- * @property {(entity: object, opts: import("swr").mutateOptions) => void} mutateEntity - The function to mutate the entity
- * @typedef {import("swr").SWRResponse & EntityResponseType} EntityResponse
+ * @property {(entity: object, opts: MutatorOptions<any, any>) => void} mutateEntity - The function to mutate the entity
+ * @typedef {SWRResponse & EntityResponseType} EntityResponse
  */
 
 /**
- * Hook for fetching an entity by ID
+ * Hook for fetching an entity by ID or params
  * @param {string} table - The table name
  * @param {string} id - The entity ID
  * @param {object} params - The query parameters
- * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
+ * @param {SWRConfiguration} swrConfig - The SWR config
  * @returns {EntityResponse} The entity and functions to update and delete it
  */
 export function useEntity(table, id, params = null, swrConfig = null) {
-    const path = apiPath(table, id, params)
-    const swrResponse = useCache(path, swrConfig)
-    const { data } = swrResponse
-    const entity = useMemo(() => id ? data : data?.data?.[0], [data])
-
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
-    const { mutate } = useSWRConfig()
+    const path = apiPath(table, id, params)
+    const swrResponse = useCache(path, swrConfig)
+    const { data, mutate } = swrResponse
+
+    const entity = useMemo(() => id ? data : data?.data?.[0], [data])
 
     const mutateEntity = useCallback((entity, opts) => {
         if (entity == undefined) {
-            return mutate(path)
+            return mutate()
         }
 
-        return mutate(path, entity, opts)
-    }, [data])
+        mutate(entity, opts)
+    }, [entity])
 
     const update = useCallback(async (fields) => {
         if (!entity) return { error: new Error("Entity not found") }
-        return await updateEntity(table, id, entity, fields, params)
-    }, [data])
+
+        return updateEntity(table, id, entity, fields, params)
+    }, [entity])
 
     const doDelete = useCallback(async () => {
-        return await deleteEntity(table, id, params)
-    }, [data])
+        return deleteEntity(table, id, params)
+    }, [entity])
 
-    return { ...swrResponse, entity, updateEntity: update, deleteEntity: doDelete, mutate: mutateEntity, mutateEntity }
+    return {
+        ...swrResponse,
+        entity,
+        updateEntity: update,
+        deleteEntity: doDelete,
+        mutate: mutateEntity,
+        mutateEntity
+    }
 }
-
 
 /**
  * @typedef {object} EntitiesResponseType
@@ -63,23 +70,22 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {number} limit - The limit of entities per page
  * @property {number} offset - The current offset
  * @property {boolean} hasMore - Whether there are more entities
- * @property {(userId: string) => boolean} isOnline - Whether the user is online
- * @property {(data: any, connections: DataConnection[]?) => void} sendData - The function to send data
  * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
  * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
  * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
- * @property {(entities: object[], opts: import("swr").mutateOptions) => void} mutateEntities - The function to mutate the entities
+ * @property {(entities: object[]) => void} mutateEntities - The function to mutate the entities
  * @property {(entity: object) => void} insertEntity - The function to insert an entity
  * @property {(entity: object) => void} mutateEntity - The function to mutate an entity
  * @property {(id: string) => void} removeEntity - The function to remove an entity
- * @typedef {import("swr").SWRResponse & EntitiesResponseType} EntitiesResponse
+ * @typedef {SWRResponse & EntitiesResponseType & PeersResult} EntitiesResponse
+ * @typedef {SWRInfiniteResponse & EntitiesResponseType & PeersResult} InfiniteEntitiesResponse
  */
 
 /**
  * Hook for fetching entities
  * @param {string} table - The table name
  * @param {object} params - The query parameters
- * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
+ * @param {SWRConfiguration} swrConfig - The SWR config
  * @param {object} [realtimeOptions] - The Realtime options
  * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
  * @param {string} [realtimeOptions.provider] - The Realtime provider
@@ -92,24 +98,25 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
     const createEntity = useCreateEntity()
-    const { mutate } = useSWRConfig()
+    const mutateChild = useMutateEntity()
 
     const path = apiPath(table, null, params)
     const swrResponse = useCache(path, swrConfig)
-    const { data, isValidating } = swrResponse
+    const { data, isValidating, mutate } = swrResponse
     const { data: entities, count, limit, offset, has_more: hasMore } = useMemo(() => data || {}, [data])
 
-    const mutateEntities = useCallback((entities, opts) => {
+    const mutateEntities = useCallback((entities) => {
         if (entities == undefined) {
-            return mutate(path)
+            return mutate()
         }
 
         mutateChildren(entities)
-        return mutate(path, { data: entities, count, limit, offset, has_more: hasMore }, opts)
+        return mutate({ data: entities, count, limit, offset, has_more: hasMore }, false)
     }, [entities])
 
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
+        // TODO throttling
         mutateEntities()
     }, [mutateEntities])
 
@@ -121,11 +128,13 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
 
     // Initialize sendData variable
-    const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
+    const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
         onData,
         room: `${realtimeOptions?.room || roomName}`
     }) : {}
+
+    const { sendData } = peersResult
 
     const insertEntity = useCallback((entity) => {
         if (!entity || !entities) return
@@ -160,8 +169,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     // Mutate the individual entities directly to the cache
     const mutateChildren = useCallback((entities) => {
         entities?.forEach((entity) => {
-            const path = apiPath(table, entity.id, params?.lang ? { lang: params.lang } : null)
-            mutate(path, entity, false)
+            mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
         })
     }, [])
 
@@ -172,13 +180,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [isValidating])
 
     const create = useCallback(async (entity) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         // Mutate the new entity directly to the parent cache
-        const newEntity = { ...entity, user_id: session.user.id }
+        const newEntity = { ...entity, user_id: session?.user.id }
         if (!newEntity.id) newEntity.id = v4()
 
         insertEntity(newEntity)
@@ -198,11 +201,6 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [entities, session, sendData])
 
     const update = useCallback(async (entity, fields) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
@@ -220,11 +218,6 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [entities, session, sendData])
 
     const doDelete = useCallback(async (id) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         // Make sure this entity exists
         const entity = entities.find(e => e.id == id)
         if (!entity) return
@@ -245,13 +238,12 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
     return {
         ...swrResponse,
+        ...peersResult,
         entities,
         count,
         limit,
         offset,
         hasMore,
-        isOnline,
-        sendData,
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,
@@ -264,28 +256,10 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 }
 
 /**
- * @typedef {object} InfiniteEntitiesResponseType
- * @property {object[]} entities - The entities
- * @property {number} count - The total count of entities
- * @property {number} limit - The limit of entities per page
- * @property {number} offset - The current offset
- * @property {boolean} hasMore - Whether there are more entities
- * @property {(userId: string) => boolean} isOnline - Whether the user is online
- * @property {(data: any, connections: DataConnection[]?) => void} sendData - The function to send data
- * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
- * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
- * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
- * @property {(entity: object) => void} insertEntity - The function to insert an entity
- * @property {(entity: object) => void} mutateEntity - The function to mutate an entity
- * @property {(id: string) => void} removeEntity - The function to remove an entity
- * @typedef {import("swr/infinite").SWRInfiniteResponse & InfiniteEntitiesResponseType} InfiniteEntitiesResponse
- */
-
-/**
  * Hook for fetching entities with infinite scrolling support
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
- * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
+ * @param {SWRConfiguration} [swrConfig] - The SWR config
  * @param {object} [realtimeOptions] - The Realtime options
  * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
  * @param {string} [realtimeOptions.provider] - The Realtime provider
@@ -298,7 +272,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
     const createEntity = useCreateEntity()
-    const { mutate } = useSWRConfig()
+    const mutateChild = useMutateEntity()
 
     // Load the entity pages using SWR
     const path = apiPath(table, null, params)
@@ -318,6 +292,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
+        // TODO throttling
         mutatePages()
     }, [mutatePages])
 
@@ -329,11 +304,13 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
 
     // Initialize sendData variable
-    const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
+    const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
         onData,
         room: `${realtimeOptions?.room || roomName}`
     }) : {}
+
+    const { sendData } = peersResult
 
     const insertEntity = useCallback((entity) => {
         if (!entity || !pages?.length) return
@@ -379,8 +356,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     // Mutate the individual entities directly to the cache
     const mutateChildren = useCallback((entities) => {
         entities?.forEach((entity) => {
-            const path = apiPath(table, entity.id, params?.lang ? { lang: params.lang } : null)
-            mutate(path, entity, false)
+            mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
         })
     }, [])
 
@@ -392,13 +368,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     }, [isValidating])
 
     const create = useCallback(async (entity) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         // Mutate the new entity directly to the parent cache
-        const newEntity = { ...entity, user_id: session.user.id }
+        const newEntity = { ...entity, user_id: session?.user.id }
         if (!newEntity.id) newEntity.id = v4()
 
         insertEntity(newEntity)
@@ -418,11 +389,6 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     }, [pages, session, sendData])
 
     const update = useCallback(async (entity, fields) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
@@ -440,11 +406,6 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     }, [pages, session, sendData])
 
     const doDelete = useCallback(async (id) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         // Make sure this entity exists
         const entity = entities.find(e => e.id == id)
         if (!entity) return
@@ -465,13 +426,12 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     return {
         ...swrResponse,
+        ...peersResult,
         entities,
         count,
         limit,
         offset,
         hasMore,
-        isOnline,
-        sendData,
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,

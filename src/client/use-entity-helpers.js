@@ -1,9 +1,12 @@
 import { useCallback } from "react"
-import { useSession } from "@supabase/auth-helpers-react"
 import { useSWRConfig } from "swr"
+import { useSession } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
+
 import { apiPath } from "./client-utils"
 import { deleteAPI, patchAPI, postAPI } from "./api-methods"
+
+// TODO look into "lang" param.... and how that needs to be factored in for mutations
 
 /**
  * Hook for creating an entity
@@ -14,12 +17,7 @@ export function useCreateEntity() {
     const mutateEntity = useMutateEntity()
 
     const createEntity = useCallback(async (table, entity = {}, params) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
-        let newEntity = { ...entity, user_id: session.user.id }
+        let newEntity = { ...entity, user_id: session?.user.id }
         if (!newEntity.id) newEntity.id = v4()
 
         // Mutate the entity directly to cache
@@ -59,11 +57,6 @@ export function useUpdateEntity() {
     const mutateEntity = useMutateEntity()
 
     const updateEntity = useCallback(async (table, id, entity, fields, params) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
         let newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the cache
@@ -193,12 +186,12 @@ export function useDeleteEntities() {
 
 /**
  * Hook for mutating entities
- * @returns {(table: string, params: object, entities: object[], opts: import("swr").mutateOptions) => Promise<any>} The function to mutate entities
+ * @returns {(table: string, params: object, entities: object[]} The function to mutate entities
  */
 export function useMutateEntities() {
     const { mutate } = useSWRConfig()
 
-    const mutateEntities = useCallback((table, params, entities, opts) => {
+    const mutateEntities = useCallback((table, params, entities) => {
         const path = apiPath(table, null, params)
 
         if (entities == undefined) {
@@ -207,11 +200,11 @@ export function useMutateEntities() {
 
         return mutate(path, {
             data: entities,
-            count: params?.count || entities.length,
+            count: params?.count || entities?.length,
             limit: params?.limit || 100,
             offset: params?.offset || 0,
             has_more: params?.has_more || false
-        }, opts)
+        }, false)
     }, [])
 
     return mutateEntities
@@ -219,15 +212,15 @@ export function useMutateEntities() {
 
 /**
  * Hook for mutating an entity
- * @returns {(table: string, id: string, entity: object) => Promise<any>} The function to mutate an entity
+ * @returns {(table: string, id: string, entity: object?, params: object?) => Promise<any>} The function to mutate an entity
  */
 export function useMutateEntity() {
     const { mutate } = useSWRConfig()
 
-    const mutateEntity = useCallback((table, id, entity) => {
+    const mutateEntity = useCallback((table, id, entity, params) => {
         if (!id) return
 
-        const path = apiPath(table, id)
+        const path = apiPath(table, id, params)
 
         if (entity == undefined) return mutate(path)
 

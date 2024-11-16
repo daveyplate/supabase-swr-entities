@@ -1,9 +1,10 @@
 import { useCallback } from "react"
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
-import useSWR from "swr"
-import useSWRInfinite from 'swr/infinite'
-import { isExport } from "./client-utils"
+import useSWR, { SWRConfiguration, SWRResponse } from "swr"
+import useSWRInfinite, { SWRInfiniteResponse } from 'swr/infinite'
 import { SupabaseClient, Session } from "@supabase/supabase-js"
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
+
+import { isExport } from "./client-utils"
 
 /**
  * Custom fetcher for SWR
@@ -50,9 +51,9 @@ const fetcher = async (supabase, session, url) => {
 /**
  * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
  * @param {string} query - The query to fetch
- * @param {import("swr").SWRConfiguration} config - The SWR config
+ * @param {SWRConfiguration} config - The SWR config
  * @param {boolean} infinite - Whether to use infinite scrolling
- * @returns {import("swr/infinite").SWRInfiniteResponse} The SWR response
+ * @returns {SWRInfiniteResponse} The SWR response
  */
 export function useInfiniteCache(query, config) {
     const session = useSession()
@@ -82,9 +83,9 @@ export function useInfiniteCache(query, config) {
 /**
  * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
  * @param {string} query - The query to fetch
- * @param {import("swr").SWRConfiguration} config - The SWR config
+ * @param {SWRConfiguration} config - The SWR config
  * @param {boolean} infinite - Whether to use infinite scrolling
- * @returns {import("swr").SWRResponse} The SWR response
+ * @returns {SWRResponse} The SWR response
  */
 export function useCache(query, config) {
     const session = useSession()
