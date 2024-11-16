@@ -1,144 +1,12 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react"
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
-import useSWR, { useSWRConfig } from "swr"
-import useSWRInfinite from 'swr/infinite'
+import { useEffect, useMemo, useCallback } from "react"
+import { useSession } from "@supabase/auth-helpers-react"
+import { useSWRConfig } from "swr"
 import { v4 } from "uuid"
 import { usePeers } from "./use-peers"
 import { DataConnection } from "peerjs"
-
-/**
- * Get the locale value from the internationalized data.
- * @param {object} obj - The internationalized data.
- * @param {string} locale - The locale.
- * @param {string} defaultLocale - The default locale.
- * @returns {string} The localized value.
- */
-export function getLocaleValue(obj, locale, defaultLocale) {
-    return obj?.[locale] || obj?.[defaultLocale] || obj?.[Object.keys(obj)[0]]
-}
-
-/** 
- * Hook for clearing cache 
- * @returns {() => void} The function to clear the cache
- */
-export function useClearCache() {
-    const { cache } = useSWRConfig()
-
-    const clearCache = useCallback(() => {
-        for (let key of cache.keys()) cache.delete(key)
-    }, [cache])
-
-    return clearCache
-}
-
-/**
- * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
- * @param {string} query - The query to fetch
- * @param {import("swr").SWRConfiguration} config - The SWR config
- * @param {boolean} infinite - Whether to use infinite scrolling
- * @returns {import("swr/infinite").SWRInfiniteResponse} The SWR response
- */
-export function useInfiniteCache(query, config) {
-    const session = useSession()
-    const supabase = useSupabaseClient()
-
-    const fetcher = async (url) => {
-        const headers = {}
-        let basePath = ""
-
-        // Use base URL for export
-        if (isExport()) {
-            // Pass session access token
-            if (session) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            if (!url.startsWith("http")) {
-                basePath = process.env.NEXT_PUBLIC_BASE_URL
-            }
-        }
-
-        const res = await fetch(basePath + url, { headers })
-        if (res.ok) {
-            const json = await res.json()
-            return json
-            // return { ...json, timestamp: Date.now() }
-        } else {
-            if (res.status == 401) {
-                supabase.auth.signOut()
-            }
-
-            if (res.status == 404) {
-                return null
-            }
-
-            throw new Error(res.statusText)
-        }
-    }
-
-    const getKey = useCallback((pageIndex, previousPageData) => {
-        // reached the end
-        if (previousPageData && !previousPageData.data) return null
-
-        // first page, we don't have `previousPageData`
-        if (pageIndex === 0) return query
-
-        const { limit } = previousPageData
-
-        // add the cursor to the API endpoint
-        return query + `&offset=${pageIndex * limit}`
-    }, [query])
-
-    const swr = useSWRInfinite(getKey, { fetcher, ...config })
-
-    return swr
-}
-
-/**
- * Wraps useSWR with custom fetcher and isLoading when provider isn't ready
- * @param {string} query - The query to fetch
- * @param {import("swr").SWRConfiguration} config - The SWR config
- * @param {boolean} infinite - Whether to use infinite scrolling
- * @returns {import("swr").SWRResponse} The SWR response
- */
-export function useCache(query, config) {
-    const session = useSession()
-    const supabase = useSupabaseClient()
-
-    const fetcher = async (url) => {
-        const headers = {}
-        let basePath = ""
-
-        // Use base URL for export
-        if (isExport()) {
-            // Pass session access token
-            if (session) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            if (!url.startsWith("http")) {
-                basePath = process.env.NEXT_PUBLIC_BASE_URL
-            }
-        }
-
-        const res = await fetch(basePath + url, { headers })
-        if (res.ok) {
-            return res.json()
-        } else {
-            if (res.status == 401) {
-                supabase.auth.signOut()
-            }
-
-            if (res.status == 404) {
-                return null
-            }
-
-            throw new Error(res.statusText)
-        }
-    }
-
-    return useSWR(query, { fetcher, ...config })
-}
+import { apiPath } from "./client-utils"
+import { useCreateEntity, useDeleteEntity, useUpdateEntity } from "./use-entity-helpers"
+import { useCache, useInfiniteCache } from "./use-cache-hooks"
 
 /**
  * @typedef {object} EntityResponseType
@@ -162,10 +30,6 @@ export function useEntity(table, id, params = null, swrConfig = null) {
     const swrResponse = useCache(path, swrConfig)
     const { data } = swrResponse
     const entity = useMemo(() => id ? data : data?.data?.[0], [data])
-
-    useEffect(() => {
-        // console.log("useEntity", path, data)
-    }, [data])
 
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -216,7 +80,11 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @param {string} table - The table name
  * @param {object} params - The query parameters
  * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
- * @param {object} [realtimeOptions] - The hook options
+ * @param {object} [realtimeOptions] - The Realtime options
+ * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
+ * @param {string} [realtimeOptions.provider] - The Realtime provider
+ * @param {string?} [realtimeOptions.room] - The Realtime room
+ * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  * @returns {EntitiesResponse} The entity and functions to update and delete it
  */
 export function useEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
@@ -413,14 +281,16 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
  * @typedef {import("swr/infinite").SWRInfiniteResponse & InfiniteEntitiesResponseType} InfiniteEntitiesResponse
  */
 
-
-
 /**
  * Hook for fetching entities with infinite scrolling support
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
  * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
- * @param {object} [realtimeOptions] - The hook options
+ * @param {object} [realtimeOptions] - The Realtime options
+ * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
+ * @param {string} [realtimeOptions.provider] - The Realtime provider
+ * @param {string?} [realtimeOptions.room] - The Realtime room
+ * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
  */
 export function useInfiniteEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
@@ -609,313 +479,4 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         mutateEntity,
         removeEntity
     }
-}
-
-/**
- * Hook for creating an entity
- * @returns {(table: string, entity: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to create an entity
- */
-export function useCreateEntity() {
-    const session = useSession()
-    const { mutate } = useSWRConfig()
-
-    const createEntity = useCallback(async (table, entity = {}, params) => {
-        if (!session) {
-            console.error("User not authenticated")
-            return { error: new Error("User not authenticated") }
-        }
-
-        let newEntity = { ...entity, user_id: session.user.id }
-        if (!newEntity.id) newEntity.id = v4()
-
-        // Mutate the entity directly to cache
-        const mutatePath = apiPath(table, newEntity.id, params)
-        mutate(mutatePath, newEntity, false)
-
-        // Create the entity via API
-        const path = apiPath(table, null, params)
-        const { error, ...response } = await postAPI(session, path, newEntity)
-
-        // Log and return any errors
-        if (error) {
-            console.error(error)
-            mutate(mutatePath, null, false)
-
-            return { error }
-        }
-
-        // Mutate the entity with the response data
-        if (response.id) {
-            newEntity = response
-            const mutatePath = apiPath(table, newEntity.id, params)
-
-            mutate(mutatePath, newEntity, false)
-        }
-
-        // Return the result
-        return { entity: newEntity }
-    }, [session])
-
-    return createEntity
-}
-
-/**
- * Hook for updating an entity
- * @returns {(table: string, id: string, entity: object, fields: object, params: object?) => Promise<{error: Error?, entity: object?}>} The function to update an entity
- */
-export function useUpdateEntity() {
-    const session = useSession()
-    const { mutate } = useSWRConfig()
-
-    const updateEntity = useCallback(async (table, id, entity, fields, params) => {
-        let path = apiPath(table, id, params)
-        let newEntity = { ...entity, ...fields }
-
-        // Mutate the entity changes directly to the cache
-        mutate(path, newEntity, false)
-        if (id != entity.id) {
-            mutate(apiPath(table, entity.id, params), newEntity, false)
-        }
-
-        // Update the entity via API
-        const { error, ...response } = await patchAPI(session, path, fields)
-
-        // Log and return any errors
-        if (error) {
-            console.error(error)
-            mutate(path, entity, false)
-
-            return { error }
-        }
-
-        // Mutate the entity with the response data
-        if (response.id) {
-            newEntity = response
-            mutate(path, newEntity, false)
-            if (id != entity.id) {
-                mutate(apiPath(table, entity.id, params), newEntity, false)
-            }
-        }
-
-        return { entity: newEntity }
-    }, [session])
-
-    return updateEntity
-}
-
-/**
- * Hook for deleting an entity
- * @returns {(table: string, id: string, params: object?) => Promise<{error: Error?}>} The function to delete an entity
- */
-export function useDeleteEntity() {
-    const session = useSession()
-    const { mutate } = useSWRConfig()
-
-    const deleteEntity = useCallback(async (table, id, params) => {
-        const path = apiPath(table, id, params)
-
-        // Mutate the entity changes directly to the cache
-        mutate(path, null, false)
-
-        // Delete the entity via API
-        const response = await deleteAPI(session, path)
-
-        if (!response) return { error: new Error("Entity not found") }
-
-        // Log and return any errors
-        if (response.error) {
-            console.error(response.error)
-            mutate(path)
-            return { error: response.error }
-        }
-
-        return response
-    }, [session])
-
-    return deleteEntity
-}
-
-/**
- * Hook for updating entities
- * @returns {(table: string, params: object, fields: object) => Promise<{error: Error?, [key: string]: any}>} The function to update entities
- */
-export function useUpdateEntities() {
-    const session = useSession()
-
-    const updateEntities = useCallback(async (table, params, fields) => {
-        const path = apiPath(table, null, params)
-
-        // Update the entities via API
-        const { error, ...response } = await patchAPI(session, path, fields)
-
-        // Log and return any errors
-        if (error) {
-            console.error(error)
-            return { error }
-        }
-
-        return response
-    }, [session])
-
-    return updateEntities
-}
-
-/**
- * Hook for deleting entities
- * @returns {(table: string, params: object) => Promise<{error: Error?, [key: string]: any}>} The function to delete entities
- */
-export function useDeleteEntities() {
-    const session = useSession()
-
-    const deleteEntities = useCallback(async (table, params) => {
-        const path = apiPath(table, null, params)
-
-        // Delete the entity via API
-        const { error, ...response } = await deleteAPI(session, path)
-
-        // Log and return any errors
-        if (error) {
-            console.error(error)
-            return { error }
-        }
-
-        return response
-    }, [session])
-
-    return deleteEntities
-}
-
-/**
- * Hook for mutating entities
- * @returns {(table: string, params: object, entities: object[], opts: import("swr").mutateOptions) => Promise<any>} The function to mutate entities
- */
-export function useMutateEntities() {
-    const { mutate } = useSWRConfig()
-
-    const mutateEntities = useCallback((table, params, entities, opts) => {
-        const path = apiPath(table, null, params)
-
-        if (entities == undefined) {
-            return mutate(path)
-        }
-
-        return mutate(path, { data: entities, count: params?.count || entities.length, limit: params?.limit || 100, offset: params?.offset || 0, has_more: params?.has_more || false }, opts)
-    }, [])
-
-    return mutateEntities
-}
-
-/**
- * Hook for mutating an entity
- * @returns {(table: string, id: string, entity: object) => Promise<any>} The function to mutate an entity
- */
-export function useMutateEntity() {
-    const { mutate } = useSWRConfig()
-
-    const mutateEntity = useCallback((table, id, entity) => {
-        const path = apiPath(table, id)
-
-        if (entity == undefined) {
-            return mutate(path)
-        }
-
-        return mutate(path, entity, false)
-    }, [])
-
-    return mutateEntity
-}
-
-/**
- * Generate API path
- * @param {string} table - The table name
- * @param {string} id - The entity ID
- * @param {object} params - The query parameters
- * @returns {string} The API path
- */
-function apiPath(table, id, params) {
-    if (!table) return null
-
-    const route = table.replaceAll('_', '-')
-    let path = `/api/${route}`
-
-    if (id) {
-        path += `/${id}`
-    }
-
-    if (params) {
-        const query = new URLSearchParams(params)
-        path += `?${query.toString()}`
-    }
-
-    return path
-}
-
-/**
- * Make a POST request to the API.
- * @param {object} session - The session object.
- * @param {string} path - The API path.
- * @param {object} params - The parameters to send with the request.
- * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
- */
-export async function postAPI(session, path, params) {
-    const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
-    const url = baseUrl + path
-
-    return fetch(url, {
-        method: 'POST',
-        headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-    }).then((res) => res.json()).catch((error) => { error })
-}
-
-/**
- * Make a PATCH request to the API.
- * @param {object} session - The session object.
- * @param {string} path - The API path.
- * @param {object} params - The parameters to send with the request.
- * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
- */
-export async function patchAPI(session, path, params) {
-    const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
-    const url = baseUrl + path
-
-    return fetch(url, {
-        method: 'PATCH',
-        headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-    }).then((res) => res.json()).catch((error) => { error })
-
-}
-
-/**
- * Make a DELETE request to the API.
- * @param {object} session - The session object.
- * @param {string} path - The API path.
- * @returns {Promise<{error: Error?, [key: string]: any}>} A promise that resolves with the API response or error key.
- */
-export async function deleteAPI(session, path) {
-    const baseUrl = isExport() ? process.env.NEXT_PUBLIC_BASE_URL : ""
-    const url = baseUrl + path
-
-    return fetch(url, {
-        method: 'DELETE',
-        headers: isExport() ? {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-        } : { 'Content-Type': 'application/json' }
-    }).then((res) => res.json()).catch((error) => { error })
-}
-
-/**
- * Check if the app is being exported.
- * @returns {boolean} True if NEXT_PUBLIC_IS_EXPORT is "1" or NEXT_PUBLIC_IS_MOBILE is "true".
- */
-function isExport() {
-    return process.env.NEXT_PUBLIC_IS_EXPORT == '1' || process.env.NEXT_PUBLIC_IS_MOBILE == 'true'
 }
