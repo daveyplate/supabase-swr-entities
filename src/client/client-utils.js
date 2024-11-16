@@ -13,8 +13,8 @@ export function getLocaleValue(obj, locale, defaultLocale) {
 }
 
 /** 
- * Hook for clearing cache 
- * @returns {() => void} The function to clear the cache
+ * Hook for clearing cache
+ * @returns {() => void} Clears the cache
  */
 export function useClearCache() {
     const { cache } = useSWRConfig()

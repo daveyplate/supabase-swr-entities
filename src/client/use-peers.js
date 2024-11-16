@@ -5,15 +5,30 @@ import { v4 } from "uuid"
 import { useEntities } from "./use-entity-hooks"
 
 /**
+ * @typedef {Object} PeersResult
+ * @property {any[]} peers - The peers
+ * @property {(data: any, connections: DataConnection[]?) => void} sendData - Send data to connections
+ * @property {DataConnection[]} connections - The connections
+ * @property {(userId: string) => boolean} isOnline - Check if a user is online
+ * @property {(connection: DataConnection) => any} getPeer - Get the peer for a connection
+ * @property {(userId: string) => DataConnection} getConnection - Get the connection for a user
+ */
+
+/**
  * Peer Connections hook
  * @param {Object} props - The hook props
  * @param {boolean} [props.enabled=true] - Is the hook enabled
  * @param {(data: any, connection: DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
  * @param {string} [props.room=null] - The room to connect to
  * @param {string[]} [props.allowedUsers=["*"]] - The users allowed to send data to
- * @returns {{ peers: any[], sendData: (data: any, connections: DataConnection[]?) => void, connections: DataConnection[], isOnline: (userId: string) => boolean, getPeer: (connection: DataConnection) => any, getConnection: (userId: string) => DataConnection}} The hook result
+ * @returns {PeersResult} The hook result
  */
-export function usePeers({ enabled = true, onData = null, room = null, allowedUsers = ["*"] }) {
+export function usePeers({
+    enabled = true,
+    onData = null,
+    room = null,
+    allowedUsers = ["*"]
+}) {
     const [_, forceUpdate] = useReducer(x => x + 1, 0)
 
     const {
@@ -245,12 +260,12 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
     }, [JSON.stringify(allowedUsers), getPeer])
 
     /**
-     * Get the connection for a user
+     * Get the connections for a user ID
      * @param {string} userId - The user ID
      * @returns {DataConnection} The connection
      */
-    const getConnection = useCallback((userId) => {
-        return connectionsRef.current.find((connection) => {
+    const getConnectionsForUser = useCallback((userId) => {
+        return connectionsRef.current.filter((connection) => {
             const connectionPeer = getPeer(connection)
             return connectionPeer?.user_id == userId
         })
@@ -261,7 +276,7 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
      * @param {string} userId - The user ID
      * @returns {boolean} Is the user online
      */
-    const isOnline = useCallback((userId) => !!getConnection(userId), [getConnection])
+    const isOnline = useCallback((userId) => !!getConnectionsForUser(userId)?.length, [getConnectionsForUser])
 
-    return { peers, sendData, connections: connectionsRef.current, isOnline, getPeer, getConnection }
+    return { peers, sendData, connections: connectionsRef.current, isOnline, getPeer, getConnectionsForUser }
 }

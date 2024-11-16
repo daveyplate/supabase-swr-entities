@@ -11,7 +11,7 @@ import { deleteAPI, patchAPI, postAPI } from "./api-methods"
  */
 export function useCreateEntity() {
     const session = useSession()
-    const { mutate } = useSWRConfig()
+    const mutateEntity = useMutateEntity()
 
     const createEntity = useCallback(async (table, entity = {}, params) => {
         if (!session) {
@@ -23,8 +23,7 @@ export function useCreateEntity() {
         if (!newEntity.id) newEntity.id = v4()
 
         // Mutate the entity directly to cache
-        const mutatePath = apiPath(table, newEntity.id, params)
-        mutate(mutatePath, newEntity, false)
+        mutateEntity(table, newEntity.id, newEntity)
 
         // Create the entity via API
         const path = apiPath(table, null, params)
@@ -33,7 +32,7 @@ export function useCreateEntity() {
         // Log and return any errors
         if (error) {
             console.error(error)
-            mutate(mutatePath, null, false)
+            mutateEntity(table, newEntity.id, null)
 
             return { error }
         }
@@ -41,9 +40,7 @@ export function useCreateEntity() {
         // Mutate the entity with the response data
         if (response.id) {
             newEntity = response
-            const mutatePath = apiPath(table, newEntity.id, params)
-
-            mutate(mutatePath, newEntity, false)
+            mutateEntity(table, newEntity.id, newEntity)
         }
 
         // Return the result
@@ -59,25 +56,40 @@ export function useCreateEntity() {
  */
 export function useUpdateEntity() {
     const session = useSession()
-    const { mutate } = useSWRConfig()
+    const mutateEntity = useMutateEntity()
 
     const updateEntity = useCallback(async (table, id, entity, fields, params) => {
-        let path = apiPath(table, id, params)
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         let newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the cache
-        mutate(path, newEntity, false)
+        mutateEntity(table, id, newEntity)
+
+        // Deal with id being "me" for example, also mutate the ID of the entity
         if (id != entity.id) {
-            mutate(apiPath(table, entity.id, params), newEntity, false)
+            mutateEntity(table, entity.id, newEntity)
         }
 
         // Update the entity via API
+        if (params) {
+            params.limit = 1
+        }
+
+        const path = apiPath(table, id, params)
         const { error, ...response } = await patchAPI(session, path, fields)
 
         // Log and return any errors
         if (error) {
             console.error(error)
-            mutate(path, entity, false)
+            mutateEntity(table, id, entity)
+
+            if (id != entity.id) {
+                mutateEntity(table, entity.id, entity)
+            }
 
             return { error }
         }
@@ -85,9 +97,10 @@ export function useUpdateEntity() {
         // Mutate the entity with the response data
         if (response.id) {
             newEntity = response
-            mutate(path, newEntity, false)
+            mutateEntity(table, id, newEntity)
+
             if (id != entity.id) {
-                mutate(apiPath(table, entity.id, params), newEntity, false)
+                mutateEntity(table, newEntity.id, newEntity)
             }
         }
 
@@ -103,15 +116,14 @@ export function useUpdateEntity() {
  */
 export function useDeleteEntity() {
     const session = useSession()
-    const { mutate } = useSWRConfig()
+    const mutateEntity = useMutateEntity()
 
     const deleteEntity = useCallback(async (table, id, params) => {
-        const path = apiPath(table, id, params)
-
         // Mutate the entity changes directly to the cache
-        mutate(path, null, false)
+        mutateEntity(table, id, null)
 
         // Delete the entity via API
+        const path = apiPath(table, id, params)
         const response = await deleteAPI(session, path)
 
         if (!response) return { error: new Error("Entity not found") }
@@ -119,7 +131,7 @@ export function useDeleteEntity() {
         // Log and return any errors
         if (response.error) {
             console.error(response.error)
-            mutate(path)
+            mutateEntity(table, id)
             return { error: response.error }
         }
 
@@ -193,7 +205,13 @@ export function useMutateEntities() {
             return mutate(path)
         }
 
-        return mutate(path, { data: entities, count: params?.count || entities.length, limit: params?.limit || 100, offset: params?.offset || 0, has_more: params?.has_more || false }, opts)
+        return mutate(path, {
+            data: entities,
+            count: params?.count || entities.length,
+            limit: params?.limit || 100,
+            offset: params?.offset || 0,
+            has_more: params?.has_more || false
+        }, opts)
     }, [])
 
     return mutateEntities
@@ -207,11 +225,11 @@ export function useMutateEntity() {
     const { mutate } = useSWRConfig()
 
     const mutateEntity = useCallback((table, id, entity) => {
+        if (!id) return
+
         const path = apiPath(table, id)
 
-        if (entity == undefined) {
-            return mutate(path)
-        }
+        if (entity == undefined) return mutate(path)
 
         return mutate(path, entity, false)
     }, [])
