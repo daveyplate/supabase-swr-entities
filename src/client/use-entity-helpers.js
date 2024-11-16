@@ -190,12 +190,13 @@ export function useDeleteEntities() {
  */
 export function useMutateEntities() {
     const { mutate } = useSWRConfig()
+    const session = useSession()
 
     const mutateEntities = useCallback((table, params, entities) => {
         const path = apiPath(table, null, params)
 
         if (entities == undefined) {
-            return mutate(path)
+            return mutate([path, session?.access_token])
         }
 
         return mutate(path, {
@@ -205,7 +206,7 @@ export function useMutateEntities() {
             offset: params?.offset || 0,
             has_more: params?.has_more || false
         }, false)
-    }, [])
+    }, [session])
 
     return mutateEntities
 }
@@ -216,16 +217,17 @@ export function useMutateEntities() {
  */
 export function useMutateEntity() {
     const { mutate } = useSWRConfig()
+    const session = useSession()
 
     const mutateEntity = useCallback((table, id, entity, params) => {
         if (!id) return
 
         const path = apiPath(table, id, params)
 
-        if (entity == undefined) return mutate(path)
+        if (entity == undefined) return mutate([path, session?.access_token])
 
-        return mutate(path, entity, false)
-    }, [])
+        return mutate([path, session?.access_token], entity, false)
+    }, [session])
 
     return mutateEntity
 }
