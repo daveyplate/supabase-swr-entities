@@ -118,7 +118,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     delete dataParams?.offset
     delete dataParams?.limit
 
-    const roomName = Object.keys(dataParams).length ? `${table}_${JSON.stringify(dataParams)}` : table
+    const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
 
     // Initialize sendData variable
     const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
@@ -326,7 +326,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     delete dataParams?.offset
     delete dataParams?.limit
 
-    const roomName = Object.keys(dataParams).length ? `${table}_${JSON.stringify(dataParams)}` : table
+    const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
 
     // Initialize sendData variable
     const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
