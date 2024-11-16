@@ -210,13 +210,14 @@ export function usePeers({ enabled = true, onData = null, room = null, allowedUs
             messageHistory.current = messageHistory.current.filter((d) => d != data)
         }, 10000)
 
-            (connections || connectionsRef.current).forEach((connection) => {
-                const peer = getPeer(connection)
+        connections = connections || connectionsRef.current
+        connections.forEach((connection) => {
+            const peer = getPeer(connection)
 
-                if (allowedUsers.includes("*") || allowedUsers.includes(peer?.user_id)) {
-                    connection.send(data)
-                }
-            })
+            if (allowedUsers.includes("*") || allowedUsers.includes(peer?.user_id)) {
+                connection.send(data)
+            }
+        })
     }, [peers, connectionsRef.current, JSON.stringify(allowedUsers)])
 
     /**

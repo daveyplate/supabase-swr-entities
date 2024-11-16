@@ -4,6 +4,7 @@ import useSWR, { useSWRConfig } from "swr"
 import useSWRInfinite from 'swr/infinite'
 import { v4 } from "uuid"
 import { usePeers } from "./use-peers"
+import { DataConnection } from "peerjs"
 
 /**
  * Get the locale value from the internationalized data.
@@ -198,10 +199,15 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {number} limit - The limit of entities per page
  * @property {number} offset - The current offset
  * @property {boolean} hasMore - Whether there are more entities
+ * @property {(userId: string) => boolean} isOnline - Whether the user is online
+ * @property {(data: any, connections: DataConnection[]?) => void} sendData - The function to send data
  * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
  * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
  * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
  * @property {(entities: object[], opts: import("swr").mutateOptions) => void} mutateEntities - The function to mutate the entities
+ * @property {(entity: object) => void} insertEntity - The function to insert an entity
+ * @property {(entity: object) => void} mutateEntity - The function to mutate an entity
+ * @property {(id: string) => void} removeEntity - The function to remove an entity
  * @typedef {import("swr").SWRResponse & EntitiesResponseType} EntitiesResponse
  */
 
@@ -210,19 +216,20 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @param {string} table - The table name
  * @param {object} params - The query parameters
  * @param {import("swr").SWRConfiguration} swrConfig - The SWR config
+ * @param {object} [realtimeOptions] - The hook options
  * @returns {EntitiesResponse} The entity and functions to update and delete it
  */
-export function useEntities(table, params = null, swrConfig = null) {
-    const path = apiPath(table, null, params)
-    const swrResponse = useCache(path, swrConfig)
-    const { data, isValidating } = swrResponse
-    const { data: entities, count, limit, offset, has_more: hasMore } = data || {}
-    const { mutate } = useSWRConfig()
-    const [addEntity, setAddEntity] = useState(null)
+export function useEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
+    const session = useSession()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
     const createEntity = useCreateEntity()
-    const session = useSession()
+    const { mutate } = useSWRConfig()
+
+    const path = apiPath(table, null, params)
+    const swrResponse = useCache(path, swrConfig)
+    const { data, isValidating } = swrResponse
+    const { data: entities, count, limit, offset, has_more: hasMore } = useMemo(() => data || {}, [data])
 
     const mutateEntities = useCallback((entities, opts) => {
         if (entities == undefined) {
@@ -231,6 +238,55 @@ export function useEntities(table, params = null, swrConfig = null) {
 
         mutateChildren(entities)
         return mutate(path, { data: entities, count, limit, offset, has_more: hasMore }, opts)
+    }, [entities])
+
+    // Reload the entities whenever realtime data is received
+    const onData = useCallback(() => {
+        mutateEntities()
+    }, [mutateEntities])
+
+    const dataParams = params
+    delete dataParams?.lang
+    delete dataParams?.offset
+    delete dataParams?.limit
+
+    const roomName = Object.keys(dataParams).length ? `${table}_${JSON.stringify(dataParams)}` : table
+
+    // Initialize sendData variable
+    const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
+        enabled: realtimeOptions?.enabled,
+        onData,
+        room: `${realtimeOptions?.room || roomName}`
+    }) : {}
+
+    const insertEntity = useCallback((entity) => {
+        if (!entity || !entities) return
+
+        // Filter out this entity from all pages to prevent duplicates
+        const newEntities = entities.filter((e) => e.id != entity.id)
+        newEntities.push(entity)
+
+        mutateChildren([entity])
+        mutateEntities(newEntities, false)
+    }, [entities])
+
+    const mutateEntity = useCallback((entity) => {
+        if (!entity || !entities) return
+
+        // Find the page that has the entity and update the entity there and mutate that using mutatePages
+        const newEntities = entities.map((e) => e.id == entity.id ? entity : e)
+
+        mutateChildren([entity])
+        mutateEntities(newEntities, false)
+    }, [entities])
+
+    const removeEntity = useCallback((id) => {
+        if (!id || !entities) return
+
+        // Find the page that has the entity and remove the entity there and mutate that using mutatePages
+        const newEntities = entities.filter((e) => e.id != id)
+
+        mutateEntities(newEntities, false)
     }, [entities])
 
     // Mutate the individual entities directly to the cache
@@ -247,13 +303,6 @@ export function useEntities(table, params = null, swrConfig = null) {
         mutateChildren(entities)
     }, [isValidating])
 
-    // Fix for delayed updates
-    useEffect(() => {
-        if (!addEntity) return
-        setAddEntity(null)
-        mutateEntities([...entities?.filter(e => e.id != addEntity.id), addEntity], false)
-    }, [addEntity])
-
     const create = useCallback(async (entity) => {
         if (!session) {
             console.error("User not authenticated")
@@ -264,39 +313,67 @@ export function useEntities(table, params = null, swrConfig = null) {
         const newEntity = { ...entity, user_id: session.user.id }
         if (!newEntity.id) newEntity.id = v4()
 
-        mutateEntities([...entities, newEntity], false)
+        insertEntity(newEntity)
 
         // Create the entity via API
         const response = await createEntity(table, newEntity)
-        if (response.error) mutateEntities()
-        if (response.entity) setAddEntity(response.entity)
+        if (response.error) removeEntity(newEntity.id)
+        if (response.entity) {
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "create_entity" })
+            }
+
+            insertEntity(response.entity)
+        }
 
         return response
-    }, [entities, session])
+    }, [entities, session, sendData])
 
     const update = useCallback(async (entity, fields) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
         const newEntity = { ...entity, ...fields }
 
         // Mutate the entity changes directly to the parent cache
-        mutateEntities(entities?.map(e => e.id == entity.id ? newEntity : e), false)
+        mutateEntity(newEntity)
 
         // Update the entity via API
         const response = await updateEntity(table, entity.id, entity, fields)
-        if (response.error) mutateEntities()
+        if (response.error) {
+            mutateEntity(entity)
+        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+            sendData({ action: "update_entity" })
+        }
 
         return response
-    }, [entities, session])
+    }, [entities, session, sendData])
 
     const doDelete = useCallback(async (id) => {
+        if (!session) {
+            console.error("User not authenticated")
+            return { error: new Error("User not authenticated") }
+        }
+
+        // Make sure this entity exists
+        const entity = entities.find(e => e.id == id)
+        if (!entity) return
+
         // Mutate the entity deletion directly to the parent cache
-        mutateEntities(entities?.filter(e => e.id != id), false)
+        removeEntity(id)
 
         // Delete the entity via API
         const response = await deleteEntity(table, id)
-        if (response.error) mutateEntities()
+        if (response.error) {
+            insertEntity(entity)
+        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+            sendData({ action: "delete_entity" })
+        }
 
         return response
-    }, [entities, session])
+    }, [entities, session, sendData])
 
     return {
         ...swrResponse,
@@ -305,11 +382,16 @@ export function useEntities(table, params = null, swrConfig = null) {
         limit,
         offset,
         hasMore,
+        isOnline,
+        sendData,
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,
         mutate: mutateEntities,
-        mutateEntities
+        mutateEntities,
+        insertEntity,
+        mutateEntity,
+        removeEntity
     }
 }
 
@@ -319,7 +401,9 @@ export function useEntities(table, params = null, swrConfig = null) {
  * @property {number} count - The total count of entities
  * @property {number} limit - The limit of entities per page
  * @property {number} offset - The current offset
- * @property {boolean} has_more - Whether there are more entities
+ * @property {boolean} hasMore - Whether there are more entities
+ * @property {(userId: string) => boolean} isOnline - Whether the user is online
+ * @property {(data: any, connections: DataConnection[]?) => void} sendData - The function to send data
  * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
  * @property {(entity: object, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
  * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
@@ -336,10 +420,10 @@ export function useEntities(table, params = null, swrConfig = null) {
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
  * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
- * @param {object} [options] - The hook options
+ * @param {object} [realtimeOptions] - The hook options
  * @returns {InfiniteEntitiesResponse} The entity and functions to update and delete it
  */
-export function useInfiniteEntities(table, params = null, swrConfig = null, options = null) {
+export function useInfiniteEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
     const session = useSession()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -351,7 +435,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
     const swrResponse = useInfiniteCache(path, swrConfig)
     const { data: pages, mutate: mutatePages, isValidating } = swrResponse
 
-    // Memoize the merged pages into entities
+    // Memoize the merged pages into entities and filter out duplicates
     const entities = useMemo(() => pages?.map(page => page.data).flat()
         .filter((entity, index, self) =>
             index === self.findIndex((t) => (
@@ -362,8 +446,24 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
     // Set the other vars from the final page
     const { offset, limit, has_more: hasMore, count } = useMemo(() => pages?.[pages.length - 1] || {}, [pages])
 
+    // Reload the entities whenever realtime data is received
+    const onData = useCallback(() => {
+        mutatePages()
+    }, [mutatePages])
+
+    const dataParams = params
+    delete dataParams?.lang
+    delete dataParams?.offset
+    delete dataParams?.limit
+
+    const roomName = Object.keys(dataParams).length ? `${table}_${JSON.stringify(dataParams)}` : table
+
     // Initialize sendData variable
-    let sendData
+    const { sendData, isOnline } = realtimeOptions?.provider == "peerjs" ? usePeers({
+        enabled: realtimeOptions?.enabled,
+        onData,
+        room: `${realtimeOptions?.room || roomName}`
+    }) : {}
 
     const insertEntity = useCallback((entity) => {
         if (!entity || !pages?.length) return
@@ -414,15 +514,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         })
     }, [])
 
+    // Mutate all children entities after each validation
     useEffect(() => {
         if (isValidating) return
-
-        const entities = pages?.map(page => page.data).flat()
-            .filter((entity, index, self) =>
-                index === self.findIndex((t) => (
-                    t.id === entity.id
-                ))
-            )
 
         mutateChildren(entities)
     }, [isValidating])
@@ -443,7 +537,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await createEntity(table, newEntity)
         if (response.error) removeEntity(newEntity.id)
         if (response.entity) {
-            if (options?.realtime == "peerjs" && !options?.listenOnly) {
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
                 sendData({ action: "create_entity" })
             }
 
@@ -468,7 +562,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await updateEntity(table, entity.id, entity, fields)
         if (response.error) {
             mutateEntity(entity)
-        } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
+        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
             sendData({ action: "update_entity" })
         }
 
@@ -481,6 +575,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
             return { error: new Error("User not authenticated") }
         }
 
+        // Make sure this entity exists
         const entity = entities.find(e => e.id == id)
         if (!entity) return
 
@@ -491,25 +586,12 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, opti
         const response = await deleteEntity(table, id)
         if (response.error) {
             insertEntity(entity)
-        } else if (options?.realtime == "peerjs" && !options?.listenOnly) {
+        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
             sendData({ action: "delete_entity" })
         }
 
         return response
     }, [pages, session, sendData])
-
-    const onData = useCallback(() => {
-        mutatePages()
-    }, [mutatePages])
-
-    const peersHook = usePeers({
-        enabled: options?.realtime == "peerjs",
-        onData,
-        room: `${options?.room || table}`
-    })
-
-    sendData = peersHook.sendData
-    const isOnline = peersHook.isOnline
 
     return {
         ...swrResponse,
