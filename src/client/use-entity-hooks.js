@@ -106,29 +106,6 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
     const { sendData } = peersResult
 
-
-    // Supabase Realtime
-    useEffect(() => {
-        if (!realtimeOptions?.enabled) return
-        if (realtimeOptions?.provider != "supabase") return
-
-        const channelA = supabase.channel(room, { config: { private: true } })
-
-        // Subscribe to the Channel
-        channelA.on('broadcast',
-            { event: 'create_entity' },
-            ({ payload }) => mutate(appendEntity(payload), false)
-        ).on('broadcast',
-            { event: 'update_entity' },
-            ({ payload }) => mutate(appendEntity(payload), false)
-        ).on('broadcast',
-            { event: 'delete_entity' },
-            ({ payload }) => mutate(removeEntity(payload.id), false)
-        ).subscribe()
-
-        return () => channelA.unsubscribe()
-    }, [data])
-
     // Mutate & precache all children entities on change
     useEffect(() => {
         entities?.forEach((entity) => {
@@ -156,6 +133,28 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         if (!entity || !data) return
 
         mutate(appendEntity(entity), false)
+    }, [data])
+
+    // Supabase Realtime
+    useEffect(() => {
+        if (!realtimeOptions?.enabled) return
+        if (realtimeOptions?.provider != "supabase") return
+
+        const channelA = supabase.channel(room, { config: { private: true } })
+
+        // Subscribe to the Channel
+        channelA.on('broadcast',
+            { event: 'create_entity' },
+            ({ payload }) => mutate(appendEntity(payload), false)
+        ).on('broadcast',
+            { event: 'update_entity' },
+            ({ payload }) => mutate(appendEntity(payload), false)
+        ).on('broadcast',
+            { event: 'delete_entity' },
+            ({ payload }) => mutate(removeEntity(payload.id), false)
+        ).subscribe()
+
+        return () => channelA.unsubscribe()
     }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
@@ -310,33 +309,6 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     const { sendData } = peersResult
 
-    // Supabase Realtime
-    useEffect(() => {
-        if (!realtimeOptions?.enabled) return
-        if (realtimeOptions?.provider != "supabase") return
-
-        console.log("data changed...")
-
-        const channelA = supabase.channel(room, { config: { private: true } })
-
-        // Subscribe to the Channel
-        channelA.on('broadcast',
-            { event: 'create_entity' },
-            ({ payload }) => {
-                console.log("create_entity", payload)
-                mutate(appendEntity(payload), false)
-            }
-        ).on('broadcast',
-            { event: 'update_entity' },
-            ({ payload }) => mutate(amendEntity(payload), false)
-        ).on('broadcast',
-            { event: 'delete_entity' },
-            ({ payload }) => mutate(removeEntity(payload.id), false)
-        ).subscribe()
-
-        return () => channelA.unsubscribe()
-    }, [data])
-
     // Mutate all children entities after each validation
     useEffect(() => {
         entities?.forEach((entity) => {
@@ -375,6 +347,31 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         if (!entity || !data) return
 
         mutate(amendEntity(data, entity), false)
+    }, [data])
+
+
+    // Supabase Realtime
+    useEffect(() => {
+        if (!realtimeOptions?.enabled) return
+        if (realtimeOptions?.provider != "supabase") return
+
+        const channelA = supabase.channel(room, { config: { private: true } })
+
+        // Subscribe to the Channel
+        channelA.on('broadcast',
+            { event: 'create_entity' },
+            ({ payload }) => {
+                mutate(appendEntity(payload), false)
+            }
+        ).on('broadcast',
+            { event: 'update_entity' },
+            ({ payload }) => mutate(amendEntity(payload), false)
+        ).on('broadcast',
+            { event: 'delete_entity' },
+            ({ payload }) => mutate(removeEntity(payload.id), false)
+        ).subscribe()
+
+        return () => channelA.unsubscribe()
     }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
