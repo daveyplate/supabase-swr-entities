@@ -54,6 +54,7 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {(entity: object, optimisticFields?: object) => Promise<{entity?: object, error?: Error}>} createEntity - The function to create an entity
  * @property {(id: string, fields: object) => Promise<{entity?: object, error: Error}>} updateEntity - The function to update an entity
  * @property {(id: string) => Promise<{error?: Error}>} deleteEntity - The function to delete an entity
+ * @property {(entity: object) => void} mutateEntity - The function to mutate an entity
  * @typedef {SWRResponse & EntitiesResponseType & PeersResult} EntitiesResponse
  * @typedef {SWRInfiniteResponse & EntitiesResponseType & PeersResult} InfiniteEntitiesResponse
  */
@@ -75,7 +76,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     const createEntity = useCreateEntity()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
-    const mutateEntity = useMutateEntity()
+    const mutateChild = useMutateEntity()
 
     const path = apiPath(table, null, params)
     const swr = useCache(path, swrConfig)
@@ -106,22 +107,27 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     // Mutate & precache all children entities on change
     useEffect(() => {
         entities?.forEach((entity) => {
-            mutateEntity(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
+            mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
         })
     }, [entities])
 
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((data, newEntity) => {
-        const entities = data.data
-        const filteredEntities = entities.filter((entity) => entity.id != newEntity.id)
-        const newEntities = [...filteredEntities, newEntity]
+        const filteredEntities = data.data.filter((entity) => entity.id != newEntity.id)
+        filteredEntities.push(newEntity)
 
         return {
             ...data,
-            data: newEntities,
-            count: newEntities.count
+            data: filteredEntities,
+            count: filteredEntities.count
         }
     }, [])
+
+    const mutateEntity = useCallback((entity) => {
+        if (!entity || !data) return
+
+        mutate(appendEntity(data, entity), false)
+    }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
         const newEntity = { ...entity, user_id: session?.user.id, locale: params?.lang }
@@ -214,7 +220,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         hasMore,
         createEntity: create,
         updateEntity: update,
-        deleteEntity: doDelete
+        deleteEntity: doDelete,
+        mutateEntity
     }
 }
 
@@ -232,15 +239,15 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
  */
 export function useInfiniteEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
     const session = useSession()
+    const createEntity = useCreateEntity()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
-    const createEntity = useCreateEntity()
     const mutateChild = useMutateEntity()
 
     // Load the entity pages using SWR
     const path = apiPath(table, null, params)
-    const swrResponse = useInfiniteCache(path, swrConfig)
-    const { data: pages, mutate: mutatePages, isValidating } = swrResponse
+    const swr = useInfiniteCache(path, swrConfig)
+    const { data: pages, mutate } = swr
 
     // Memoize the merged pages into entities and filter out duplicates
     const entities = useMemo(() => pages?.map(page => page.data).flat()
@@ -255,18 +262,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
-        // TODO throttling
-        mutatePages()
-    }, [mutatePages])
+        mutate()
+    }, [])
 
-    const dataParams = params
-    delete dataParams?.lang
-    delete dataParams?.offset
-    delete dataParams?.limit
+    // Clean out the params for the room name
+    const roomNameParams = params ? { ...params } : null
+    delete roomNameParams?.lang
+    delete roomNameParams?.offset
+    delete roomNameParams?.limit
 
-    const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
+    const roomName = Object.keys(roomNameParams || {}).length ? `${table}_${JSON.stringify(roomNameParams)}` : table
 
-    // Initialize sendData variable
     const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
         onData,
@@ -275,120 +281,131 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     const { sendData } = peersResult
 
-    const insertEntity = useCallback((entity) => {
-        if (!entity || !pages?.length) return
+    // Mutate all children entities after each validation
+    useEffect(() => {
+        entities?.forEach((entity) => {
+            mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
+        })
+    }, [entities])
 
-        // Filter out this entity from all pages to prevent duplicates
-        const newPages = JSON.parse(JSON.stringify(pages))
-        newPages.forEach((page) => {
-            page.data = page.data.filter((e) => e.id != entity.id)
+    // Append an entity to the data & filter out duplicates
+    const appendEntity = useCallback((data, newEntity) => {
+        // Filter this entity from all pages then push it to the first page
+        const filteredPages = data.map((page) => {
+            const filteredData = page.data.filter((entity) => entity.id != newEntity.id)
+            return { ...page, data: filteredData }
         })
 
-        // Add the entity to the first page
-        newPages[0].data.push(entity)
+        filteredPages[0].data.push(newEntity)
 
-        mutateChildren([entity])
-        mutatePages(newPages, false)
-    }, [pages])
+        return filteredPages
+    }, [])
+
+    const amendEntity = useCallback((data, newEntity) => {
+        // Find this entity in a page and replace it with newEntity
+        const amendedPages = data.map((page) => {
+            const amendedData = page.data.map((entity) => entity.id == newEntity.id ? newEntity : entity)
+            return { ...page, data: amendedData }
+        })
+
+        return amendedPages
+    }, [])
 
     const mutateEntity = useCallback((entity) => {
         if (!entity || !pages) return
 
-        // Find the page that has the entity and update the entity there and mutate that using mutatePages
-        const newPages = JSON.parse(JSON.stringify(pages))
-        newPages.forEach((page) => {
-            page.data = page.data.map((e) => e.id == entity.id ? entity : e)
-        })
-
-        mutateChildren([entity])
-        mutatePages(newPages, false)
+        mutate(amendEntity(pages, entity), false)
     }, [pages])
 
-    const removeEntity = useCallback((id) => {
-        if (!id || !pages) return
-
-        // Find the page that has the entity and remove the entity there and mutate that using mutatePages
-        const newPages = JSON.parse(JSON.stringify(pages))
-        newPages.forEach((page) => {
-            page.data = page.data.filter((e) => e.id != id)
-        })
-
-        mutatePages(newPages, false)
-    }, [pages])
-
-    // Mutate the individual entities directly to the cache
-    const mutateChildren = useCallback((entities) => {
-        entities?.forEach((entity) => {
-            mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
-        })
-    }, [])
-
-    // Mutate all children entities after each validation
-    useEffect(() => {
-        if (isValidating) return
-
-        mutateChildren(entities)
-    }, [isValidating])
-
-    const create = useCallback(async (entity) => {
+    const create = useCallback(async (entity, optimisticFields = {}) => {
         // Mutate the new entity directly to the parent cache
-        const newEntity = { ...entity, user_id: session?.user.id }
-        if (!newEntity.id) newEntity.id = v4()
+        const newEntity = { id: v4(), ...entity, user_id: session?.user.id }
 
-        insertEntity(newEntity)
+        try {
+            const entity = await mutate(async () => {
+                const { entity, error } = await createEntity(table, newEntity, params, optimisticFields)
+                if (error) throw error
 
-        // Create the entity via API
-        const response = await createEntity(table, newEntity)
-        if (response.error) removeEntity(newEntity.id)
-        if (response.entity) {
+                return entity
+            }, {
+                populateCache: (entity, data) => appendEntity(data, entity),
+                optimisticData: (data) => appendEntity(data, {
+                    created_at: new Date(),
+                    ...newEntity,
+                    ...optimisticFields
+                }),
+                revalidate: false
+            })
+
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
                 sendData({ action: "create_entity" })
             }
 
-            insertEntity(response.entity)
+            return { entity }
+        } catch (error) {
+            return { error }
         }
+    }, [session, sendData, JSON.stringify(params)])
 
-        return response
-    }, [pages, session, sendData])
+    const update = useCallback(async (id, fields) => {
+        try {
+            const entity = await mutate(async () => {
+                const { entity, error } = await updateEntity(table, id, fields, params)
+                if (error) throw error
 
-    const update = useCallback(async (entity, fields) => {
-        const newEntity = { ...entity, ...fields }
+                return entity
+            }, {
+                populateCache: (entity, data) => amendEntity(data, entity),
+                optimisticData: (data) => {
+                    const entity = data?.map(page => page.data).flat().find((e) => e.id == id)
+                    if (!entity) return data
 
-        // Mutate the entity changes directly to the parent cache
-        mutateEntity(newEntity)
+                    return appendEntity(data, {
+                        updated_at: new Date(),
+                        ...entity,
+                        ...fields
+                    })
+                },
+                revalidate: false
+            })
 
-        // Update the entity via API
-        const response = await updateEntity(table, entity.id, entity, fields)
-        if (response.error) {
-            mutateEntity(entity)
-        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-            sendData({ action: "update_entity" })
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "update_entity" })
+            }
+
+            return { entity }
+        } catch (error) {
+            return { error }
         }
-
-        return response
-    }, [pages, session, sendData])
+    }, [session, sendData, JSON.stringify(params)])
 
     const doDelete = useCallback(async (id) => {
-        // Make sure this entity exists
-        const entity = entities.find(e => e.id == id)
-        if (!entity) return
+        try {
+            await mutate(async () => {
+                const { error } = await deleteEntity(table, id, params)
+                if (error) throw error
+            }, {
+                populateCache: (_, data) => data.map((page) => {
+                    const filteredData = page.data.filter((entity) => entity.id != id)
+                    return { ...page, data: filteredData }
+                }),
+                optimisticData: (data) => data.map((page) => {
+                    const filteredData = page.data.filter((entity) => entity.id != id)
+                    return { ...page, data: filteredData }
+                }),
+                revalidate: false
+            })
 
-        // Mutate the entity deletion directly to the parent cache
-        removeEntity(id)
-
-        // Delete the entity via API
-        const response = await deleteEntity(table, id)
-        if (response.error) {
-            insertEntity(entity)
-        } else if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-            sendData({ action: "delete_entity" })
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "delete_entity" })
+            }
+        } catch (error) {
+            return { error }
         }
-
-        return response
-    }, [pages, session, sendData])
+    }, [session, sendData, JSON.stringify(params)])
 
     return {
-        ...swrResponse,
+        ...swr,
         ...peersResult,
         entities,
         count,
@@ -398,8 +415,6 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         createEntity: create,
         updateEntity: update,
         deleteEntity: doDelete,
-        insertEntity,
-        mutateEntity,
-        removeEntity
+        mutateEntity
     }
 }

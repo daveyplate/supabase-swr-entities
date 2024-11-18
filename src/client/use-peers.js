@@ -36,7 +36,7 @@ export function usePeers({
         createEntity: createPeer,
         updateEntity: updatePeer,
         deleteEntity: deletePeer,
-        mutateEntities: mutatePeers,
+        mutate: mutatePeers,
     } = useEntities(enabled && 'peers', { room })
 
     const [peer, setPeer] = useState(null)
