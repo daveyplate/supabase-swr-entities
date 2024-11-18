@@ -134,7 +134,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         entities?.forEach((entity) => {
             mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
         })
-    }, [entities])
+    }, [table, entities, JSON.stringify(params)])
 
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((data, newEntity) => {
@@ -336,7 +336,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         entities?.forEach((entity) => {
             mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
         })
-    }, [entities])
+    }, [table, entities, JSON.stringify(params)])
 
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((data, newEntity) => {
@@ -348,7 +348,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
         filteredPages[0].data.push(newEntity)
 
-        return filteredPages
+        return [...filteredPages]
     }, [])
 
     const amendEntity = useCallback((data, newEntity) => {
@@ -358,7 +358,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             return { ...page, data: amendedData }
         })
 
-        return amendedPages
+        return [...amendedPages]
     }, [])
 
     const mutateEntity = useCallback((entity) => {
