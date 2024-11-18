@@ -117,17 +117,17 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         // Subscribe to the Channel
         channelA.on('broadcast',
             { event: 'create_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+            ({ payload }) => mutate(appendEntity(payload), false)
         ).on('broadcast',
             { event: 'update_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+            ({ payload }) => mutate(appendEntity(payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate((prev) => ({ ...prev, data: prev.data.filter((entity) => entity.id != payload.id) }), false)
+            ({ payload }) => mutate(({ ...data, data: data.data.filter((entity) => entity.id != payload.id) }), false)
         ).subscribe()
 
         return () => channelA.unsubscribe()
-    }, [entities])
+    }, [data])
 
     // Mutate & precache all children entities on change
     useEffect(() => {
@@ -137,7 +137,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [table, entities, JSON.stringify(params)])
 
     // Append an entity to the data & filter out duplicates
-    const appendEntity = useCallback((data, newEntity) => {
+    const appendEntity = useCallback((newEntity) => {
         const filteredEntities = data.data.filter((entity) => entity.id != newEntity.id)
         filteredEntities.push(newEntity)
 
@@ -146,12 +146,12 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             data: filteredEntities,
             count: filteredEntities.count
         }
-    }, [])
+    }, [data])
 
     const mutateEntity = useCallback((entity) => {
         if (!entity || !data) return
 
-        mutate(appendEntity(data, entity), false)
+        mutate(appendEntity(entity), false)
     }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
@@ -164,8 +164,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
                 return entity
             }, {
-                populateCache: (entity, data) => appendEntity(data, entity),
-                optimisticData: (data) => appendEntity(data, {
+                populateCache: (entity) => appendEntity(entity),
+                optimisticData: () => appendEntity({
                     created_at: new Date(),
                     ...newEntity,
                     ...optimisticFields
@@ -181,7 +181,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     const update = useCallback(async (id, fields) => {
         try {
@@ -191,12 +191,12 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
                 return entity
             }, {
-                populateCache: (entity, data) => appendEntity(data, entity),
-                optimisticData: (data) => {
+                populateCache: (entity) => appendEntity(entity),
+                optimisticData: () => {
                     const entity = data.data.find((e) => e.id == id)
                     if (!entity) return data
 
-                    return appendEntity(data, {
+                    return appendEntity({
                         updated_at: new Date(),
                         ...entity,
                         ...fields
@@ -213,7 +213,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     const doDelete = useCallback(async (id) => {
         try {
@@ -221,8 +221,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: (_, data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
-                optimisticData: (data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
+                populateCache: () => ({ ...data, data: data.data.filter((e) => e.id != id) }),
+                optimisticData: () => ({ ...data, data: data.data.filter((e) => e.id != id) }),
                 revalidate: false
             })
 
@@ -232,7 +232,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     return {
         ...swr,
@@ -272,18 +272,18 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     // Load the entity pages using SWR
     const path = apiPath(table, null, params)
     const swr = useInfiniteCache(path, swrConfig)
-    const { data: pages, mutate } = swr
+    const { data, mutate } = swr
 
     // Memoize the merged pages into entities and filter out duplicates
-    const entities = useMemo(() => pages?.map(page => page.data).flat()
+    const entities = useMemo(() => data?.map(page => page.data).flat()
         .filter((entity, index, self) =>
             index === self.findIndex((t) => (
                 t.id === entity.id
             ))
-        ), [pages])
+        ), [data])
 
     // Set the other vars from the final page
-    const { offset, limit, has_more: hasMore, count } = useMemo(() => pages?.[pages.length - 1] || {}, [pages])
+    const { offset, limit, has_more: hasMore, count } = useMemo(() => data?.[data.length - 1] || {}, [data])
 
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
@@ -316,20 +316,20 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         // Subscribe to the Channel
         channelA.on('broadcast',
             { event: 'create_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+            ({ payload }) => mutate(appendEntity(payload), false)
         ).on('broadcast',
             { event: 'update_entity' },
-            ({ payload }) => mutate((prev) => amendEntity(prev, payload), false)
+            ({ payload }) => mutate(amendEntity(payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate((prev) => JSON.parse(JSON.stringify(prev)).map((page) => {
+            ({ payload }) => mutate(data.map((page) => {
                 const filteredData = page.data.filter((entity) => entity.id != payload.id)
                 return { ...page, data: filteredData }
             }), false)
         ).subscribe()
 
         return () => channelA.unsubscribe()
-    }, [pages])
+    }, [data])
 
     // Mutate all children entities after each validation
     useEffect(() => {
@@ -339,9 +339,9 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     }, [table, entities, JSON.stringify(params)])
 
     // Append an entity to the data & filter out duplicates
-    const appendEntity = useCallback((data, newEntity) => {
+    const appendEntity = useCallback((newEntity) => {
         // Filter this entity from all pages then push it to the first page
-        const filteredPages = JSON.parse(JSON.stringify(data)).map((page) => {
+        const filteredPages = data.map((page) => {
             const filteredData = page.data.filter((entity) => entity.id != newEntity.id)
             return { ...page, data: filteredData }
         })
@@ -349,23 +349,23 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         filteredPages[0].data.push(newEntity)
 
         return filteredPages
-    }, [])
+    }, [data])
 
-    const amendEntity = useCallback((data, newEntity) => {
+    const amendEntity = useCallback((newEntity) => {
         // Find this entity in a page and replace it with newEntity
-        const amendedPages = JSON.parse(JSON.stringify(data)).map((page) => {
+        const amendedPages = data.map((page) => {
             const amendedData = page.data.map((entity) => entity.id == newEntity.id ? newEntity : entity)
             return { ...page, data: amendedData }
         })
 
         return amendedPages
-    }, [])
+    }, [data])
 
     const mutateEntity = useCallback((entity) => {
-        if (!entity || !pages) return
+        if (!entity || !data) return
 
-        mutate(amendEntity(pages, entity), false)
-    }, [pages])
+        mutate(amendEntity(data, entity), false)
+    }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
         // Mutate the new entity directly to the parent cache
@@ -378,8 +378,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
                 return entity
             }, {
-                populateCache: (entity, data) => appendEntity(data, entity),
-                optimisticData: (data) => appendEntity(data, {
+                populateCache: (entity) => appendEntity(entity),
+                optimisticData: () => appendEntity({
                     created_at: new Date(),
                     ...newEntity,
                     ...optimisticFields
@@ -395,7 +395,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     const update = useCallback(async (id, fields) => {
         try {
@@ -405,12 +405,12 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
                 return entity
             }, {
-                populateCache: (entity, data) => amendEntity(data, entity),
-                optimisticData: (data) => {
+                populateCache: (entity) => amendEntity(entity),
+                optimisticData: () => {
                     const entity = data?.map(page => page.data).flat().find((e) => e.id == id)
                     if (!entity) return data
 
-                    return appendEntity(data, {
+                    return amendEntity({
                         updated_at: new Date(),
                         ...entity,
                         ...fields
@@ -427,7 +427,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     const doDelete = useCallback(async (id) => {
         try {
@@ -435,11 +435,11 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: (_, data) => JSON.parse(JSON.stringify(data)).map((page) => {
+                populateCache: () => data.map((page) => {
                     const filteredData = page.data.filter((entity) => entity.id != id)
                     return { ...page, data: filteredData }
                 }),
-                optimisticData: (data) => JSON.parse(JSON.stringify(data)).map((page) => {
+                optimisticData: () => data.map((page) => {
                     const filteredData = page.data.filter((entity) => entity.id != id)
                     return { ...page, data: filteredData }
                 }),
@@ -452,7 +452,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [session, sendData, JSON.stringify(params)])
+    }, [data, session, sendData, JSON.stringify(params)])
 
     return {
         ...swr,
