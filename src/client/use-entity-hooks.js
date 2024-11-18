@@ -123,7 +123,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             ({ payload }) => mutate(appendEntity(payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate(({ ...data, data: data.data.filter((entity) => entity.id != payload.id) }), false)
+            ({ payload }) => mutate(removeEntity(payload.id), false)
         ).subscribe()
 
         return () => channelA.unsubscribe()
@@ -138,7 +138,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((newEntity) => {
-        const filteredEntities = data.data.filter((entity) => entity.id != newEntity.id)
+        const filteredEntities = removeEntity(newEntity.id)
         filteredEntities.push(newEntity)
 
         return {
@@ -146,6 +146,10 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             data: filteredEntities,
             count: filteredEntities.count
         }
+    }, [data])
+
+    const removeEntity = useCallback((id) => {
+        return JSON.parse(JSON.stringify(data)).data.filter((entity) => entity.id != id)
     }, [data])
 
     const mutateEntity = useCallback((entity) => {
@@ -221,8 +225,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: () => ({ ...data, data: data.data.filter((e) => e.id != id) }),
-                optimisticData: () => ({ ...data, data: data.data.filter((e) => e.id != id) }),
+                populateCache: () => removeEntity(id),
+                optimisticData: removeEntity(id),
                 revalidate: false
             })
 
@@ -322,10 +326,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             ({ payload }) => mutate(amendEntity(payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate(data.map((page) => {
-                const filteredData = page.data.filter((entity) => entity.id != payload.id)
-                return { ...page, data: filteredData }
-            }), false)
+            ({ payload }) => mutate(removeEntity(payload.id), false)
         ).subscribe()
 
         return () => channelA.unsubscribe()
@@ -341,11 +342,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((newEntity) => {
         // Filter this entity from all pages then push it to the first page
-        const filteredPages = data.map((page) => {
-            const filteredData = page.data.filter((entity) => entity.id != newEntity.id)
-            return { ...page, data: filteredData }
-        })
-
+        const filteredPages = removeEntity(newEntity.id)
         filteredPages[0].data.push(newEntity)
 
         return filteredPages
@@ -353,12 +350,20 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     const amendEntity = useCallback((newEntity) => {
         // Find this entity in a page and replace it with newEntity
-        const amendedPages = data.map((page) => {
+        const amendedPages = JSON.parse(JSON.stringify(data)).map((page) => {
             const amendedData = page.data.map((entity) => entity.id == newEntity.id ? newEntity : entity)
             return { ...page, data: amendedData }
         })
 
         return amendedPages
+    }, [data])
+
+    const removeEntity = useCallback((id) => {
+        // Filter this entity from all pages
+        return JSON.parse(JSON.stringify(data)).map((page) => {
+            const filteredData = page.data.filter((entity) => entity.id != id)
+            return { ...page, data: filteredData }
+        })
     }, [data])
 
     const mutateEntity = useCallback((entity) => {
@@ -435,14 +440,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: () => data.map((page) => {
-                    const filteredData = page.data.filter((entity) => entity.id != id)
-                    return { ...page, data: filteredData }
-                }),
-                optimisticData: () => data.map((page) => {
-                    const filteredData = page.data.filter((entity) => entity.id != id)
-                    return { ...page, data: filteredData }
-                }),
+                populateCache: removeEntity(id),
+                optimisticData: removeEntity(id),
                 revalidate: false
             })
 
