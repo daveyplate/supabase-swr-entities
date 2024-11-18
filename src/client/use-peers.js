@@ -259,7 +259,6 @@ export function usePeers({
 
         if (allowedUsers.includes("*") || allowedUsers.includes(connectionPeer?.user_id)) {
             messageHistory.current.forEach(data => {
-                console.log("sending message history", data)
                 connection.send(data)
             })
         }

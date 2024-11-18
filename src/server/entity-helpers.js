@@ -25,7 +25,7 @@ export function createAdminClient() {
 /**
  * Load an entity schema from entity.schemas.js
  * @param {string} table SQL table to load schema for
- * @returns {Promise<{entitySchema: object?, error: Error?}>} Entity schema or error
+ * @returns {Promise<{entitySchema?: object, error?: Error}>} Entity schema or error
  */
 export async function loadEntitySchema(table) {
     const entitySchemas = await loadEntitySchemas()
@@ -106,11 +106,10 @@ export async function translateEntity(table, entity, lang) {
  * @param {string} id ID of the entity to get
  * @param {object} [params={}] Additional parameters to apply to the query
  * @param {string[]} [select] Values to select
- * @returns {Promise<{entity: object?, error: PostgrestError?}>} Entity from the table or error
+ * @returns {Promise<{entity?: object, error?: PostgrestError}>} Entity from the table or error
  */
 export async function getEntity(table, id, params = {}, select = null) {
     const lang = params?.lang
-
     const { data, error } = await entityQuery(table, "select", {}, { id, ...params }, select)
 
     if (error) {
@@ -133,7 +132,7 @@ export async function getEntity(table, id, params = {}, select = null) {
  * @param {string} table SQL table to get entities from
  * @param {{limit: number, offset: number, order: string, [key: string]: any}} [params={}] Parameters to apply to the query
  * @param {string[]} [select] Values to select
- * @returns {Promise<{entities: object[]?, count: number?, limit: number?, offset: number?, error: PostgrestError?}>} Entities from the table or error
+ * @returns {Promise<{entities?: object[], count?: number, limit?: number, offset?: number, error?: PostgrestError}>} Entities from the table or error
  */
 export async function getEntities(table, params = {}, select = null) {
     const lang = params?.lang
@@ -167,7 +166,7 @@ export async function getEntities(table, params = {}, select = null) {
  * @param {string} table SQL table to create entity in
  * @param {object} [values={}] Values to create the entity with
  * @param {string[]} [select] Fields to select
- * @returns {Promise<{entity: object?, error: PostgrestError?}>} Created entity or error
+ * @returns {Promise<{entity?: object, error?: PostgrestError}>} Created entity or error
  */
 export async function createEntity(table, values = {}, select = null) {
     const { data, error } = await entityQuery(table, "upsert", values, {}, select)
@@ -177,7 +176,45 @@ export async function createEntity(table, values = {}, select = null) {
         return { error }
     }
 
-    return { entity: data[0] }
+    const entity = data[0]
+
+    sendRealtime(table, 'create_entity', entity)
+
+    return { entity }
+}
+
+async function sendRealtime(table, event, payload) {
+    const { entitySchema } = await loadEntitySchema(table)
+    if (!entitySchema?.realtime && !entitySchema.realtimeParent) return
+
+    if (entitySchema.realtimeParent) {
+        const { entity } = await getEntity(
+            entitySchema.realtimeParent.table,
+            payload[entitySchema.realtimeParent.column]
+        )
+
+        if (entity) {
+            sendRealtime(entitySchema.realtimeParent.table, "update_entity", entity)
+        }
+
+        return
+    }
+
+    const room = entitySchema.realtimeIdentifier ?
+        `${table}:${payload[entitySchema.realtimeIdentifier]}`
+        : table
+    const supabase = createAdminClient()
+    const channelB = supabase.channel(room, { config: { private: true } })
+
+    channelB.subscribe((status) => {
+        if (status != 'SUBSCRIBED') return
+
+        channelB.send({
+            type: 'broadcast',
+            event,
+            payload,
+        })
+    })
 }
 
 /**
@@ -187,7 +224,7 @@ export async function createEntity(table, values = {}, select = null) {
  * @param {object} [values={}] Values to update the entity with
  * @param {object} [params={}] Parameters to apply to the update query
  * @param {string[]} [select] Fields to select
- * @returns {Promise<{entity: object?, error: PostgrestError?}>} Updated entity or error
+ * @returns {Promise<{entity?: object, error?: PostgrestError}>} Updated entity or error
  */
 export const updateEntity = async (table, id, values = {}, params = {}, select = null) => {
     const { data, error } = await entityQuery(table, "update", values, { id, ...params }, select)
@@ -197,7 +234,11 @@ export const updateEntity = async (table, id, values = {}, params = {}, select =
         return { error }
     }
 
-    return { entity: data[0] }
+    const entity = data[0]
+
+    sendRealtime(table, 'update_entity', entity)
+
+    return { entity }
 }
 
 /**
@@ -205,17 +246,21 @@ export const updateEntity = async (table, id, values = {}, params = {}, select =
  * @param {string} table SQL table to update entities in
  * @param {object} [values={}] Values to update the entities with
  * @param {object} [params={}] Parameters to apply to the update query
- * @returns {Promise<{success: boolean?, error: PostgrestError?}>}  Updated entities or error
+ * @returns {Promise<{entities?: boolean, error?: PostgrestError}>}  Updated entities or error
  */
 export async function updateEntities(table, values = {}, params = {}) {
-    const { error } = await entityQuery(table, "update", values, params)
+    const { data: entities, error } = await entityQuery(table, "update", values, params)
 
     if (error) {
         console.error(error)
         return { error }
     }
 
-    return { success: true }
+    entities.forEach((entity) => {
+        sendRealtime(table, 'update_entity', entity)
+    })
+
+    return { entities }
 }
 
 /**
@@ -223,34 +268,42 @@ export async function updateEntities(table, values = {}, params = {}) {
  * @param {string} table SQL table to delete entity from
  * @param {string} id ID of the entity to delete
  * @param {object} [params={}] Parameters to apply to the delete query
- * @returns {Promise<{success: boolean?, error: PostgrestError?}>} Success status or error
+ * @returns {Promise<{entity?: object, error?: PostgrestError}>} Success status or error
  */
 export async function deleteEntity(table, id, params = {}) {
-    const { error } = await entityQuery(table, "delete", null, { id, ...params })
+    const { data, error } = await entityQuery(table, "delete", null, { id, ...params })
 
     if (error) {
         console.error(error)
         return { error }
     }
 
-    return { success: true }
+    const entity = data[0]
+
+    sendRealtime(table, 'delete_entity', entity)
+
+    return { entity }
 }
 
 /**
  * Delete entities from a SQL table
  * @param {string} table SQL table to delete entity from
  * @param {object} [params={}] Parameters to apply to the delete query
- * @returns {Promise<{success: boolean?, error: PostgrestError?}>} Success status or error
+ * @returns {Promise<{entities?: object[], error?: PostgrestError}>} Success status or error
  */
 export async function deleteEntities(table, params = {}) {
-    const { error } = await entityQuery(table, "delete", null, params)
+    const { data: entities, error } = await entityQuery(table, "delete", null, params)
 
     if (error) {
         console.error(error)
         return { error }
     }
 
-    return { success: true }
+    entities.forEach((entity) => {
+        sendRealtime(table, 'delete_entity', entity)
+    })
+
+    return { entities }
 }
 
 

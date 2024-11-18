@@ -130,7 +130,6 @@ async function handler(request, context) {
     const body = request.method == "POST" || request.method == "PATCH" ? await request.json() : null
     const supabase = createClient()
 
-    console.log(search)
     const response = await entitiesRoute({
         supabase,
         method: request.method,

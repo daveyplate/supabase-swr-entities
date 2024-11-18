@@ -78,10 +78,10 @@ export async function entitiesRoute({ supabase, method, headers, query, body }) 
 
         return { status: 200, body: { success: true } }
     } else if (method == 'DELETE') {
-        const { error } = await deleteEntities(table, params)
+        const { entities, error } = await deleteEntities(table, params)
         if (error) return { status: 500, body: { error } }
 
-        return { status: 200, body: { success: true } }
+        return { status: 200, body: { data: entities } }
     }
 
     return { status: 405, body: { error: { message: 'Method Not Allowed' } } }

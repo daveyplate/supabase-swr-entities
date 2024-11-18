@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useCallback } from "react"
 import { SWRResponse, SWRConfiguration } from "swr"
 import { SWRInfiniteResponse } from "swr/infinite"
-import { useSession } from "@supabase/auth-helpers-react"
+import useSWRSubscription from 'swr/subscription'
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
 import { usePeers, PeersResult } from "./use-peers"
@@ -29,15 +30,15 @@ export function useEntity(table, id, params = null, swrConfig = null) {
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
     const path = apiPath(table, id, params)
-    const swrResponse = useCache(path, swrConfig)
-    const { data } = swrResponse
+    const swr = useCache(path, swrConfig)
+    const { data } = swr
 
     const entity = useMemo(() => id ? data : data?.data?.[0], [data])
     const update = useCallback(async (fields) => updateEntity(table, id, fields, params), [table, id, JSON.stringify(params)])
     const doDelete = useCallback(async () => deleteEntity(table, id, params), [table, id, JSON.stringify(params)])
 
     return {
-        ...swrResponse,
+        ...swr,
         entity,
         updateEntity: update,
         deleteEntity: doDelete
@@ -73,6 +74,7 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  */
 export function useEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
     const session = useSession()
+    const supabase = useSupabaseClient()
     const createEntity = useCreateEntity()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -86,7 +88,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
         mutate()
-    }, [])
+    }, [mutate])
 
     // Clean out the params for the room name
     const roomNameParams = params ? { ...params } : null
@@ -94,15 +96,38 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     delete roomNameParams?.offset
     delete roomNameParams?.limit
 
-    const roomName = Object.keys(roomNameParams || {}).length ? `${table}_${JSON.stringify(roomNameParams)}` : table
+    const room = realtimeOptions?.room || (Object.keys(roomNameParams || {}).length ? `${table}:${JSON.stringify(roomNameParams)}` : table)
 
     const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
         onData,
-        room: `${realtimeOptions?.room || roomName}`
+        room
     }) : {}
 
     const { sendData } = peersResult
+
+
+    // Supabase Realtime
+    useEffect(() => {
+        if (!realtimeOptions?.enabled) return
+        if (realtimeOptions?.provider != "supabase") return
+
+        const channelA = supabase.channel(room, { config: { private: true } })
+
+        // Subscribe to the Channel
+        channelA.on('broadcast',
+            { event: 'create_entity' },
+            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+        ).on('broadcast',
+            { event: 'update_entity' },
+            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+        ).on('broadcast',
+            { event: 'delete_entity' },
+            ({ payload }) => mutate((prev) => ({ ...prev, data: prev.data.filter((entity) => entity.id != payload.id) }), false)
+        ).subscribe()
+
+        return () => channelA.unsubscribe()
+    }, [entities])
 
     // Mutate & precache all children entities on change
     useEffect(() => {
@@ -130,8 +155,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [data])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
-        const newEntity = { ...entity, user_id: session?.user.id, locale: params?.lang }
-        if (!newEntity.id) newEntity.id = v4()
+        const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: params?.lang }
 
         try {
             const entity = await mutate(async () => {
@@ -239,6 +263,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
  */
 export function useInfiniteEntities(table, params = null, swrConfig = null, realtimeOptions = null) {
     const session = useSession()
+    const supabase = useSupabaseClient()
     const createEntity = useCreateEntity()
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -263,7 +288,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     // Reload the entities whenever realtime data is received
     const onData = useCallback(() => {
         mutate()
-    }, [])
+    }, [mutate])
 
     // Clean out the params for the room name
     const roomNameParams = params ? { ...params } : null
@@ -271,15 +296,40 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     delete roomNameParams?.offset
     delete roomNameParams?.limit
 
-    const roomName = Object.keys(roomNameParams || {}).length ? `${table}_${JSON.stringify(roomNameParams)}` : table
+    const room = realtimeOptions?.room || (Object.keys(roomNameParams || {}).length ? `${table}:${JSON.stringify(roomNameParams)}` : table)
 
     const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
         onData,
-        room: `${realtimeOptions?.room || roomName}`
+        room
     }) : {}
 
     const { sendData } = peersResult
+
+    // Supabase Realtime
+    useEffect(() => {
+        if (!realtimeOptions?.enabled) return
+        if (realtimeOptions?.provider != "supabase") return
+
+        const channelA = supabase.channel(room, { config: { private: true } })
+
+        // Subscribe to the Channel
+        channelA.on('broadcast',
+            { event: 'create_entity' },
+            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
+        ).on('broadcast',
+            { event: 'update_entity' },
+            ({ payload }) => mutate((prev) => amendEntity(prev, payload), false)
+        ).on('broadcast',
+            { event: 'delete_entity' },
+            ({ payload }) => mutate((prev) => prev.map((page) => {
+                const filteredData = page.data.filter((entity) => entity.id != payload.id)
+                return { ...page, data: filteredData }
+            }), false)
+        ).subscribe()
+
+        return () => channelA.unsubscribe()
+    }, [pages])
 
     // Mutate all children entities after each validation
     useEffect(() => {

@@ -21,6 +21,9 @@ export function useCreateEntity() {
     const createEntity = useCallback(async (table, entity, params, optimisticFields = {}) => {
         const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: params?.lang }
         delete params?.lang
+        delete params?.limit
+        delete params?.offset
+        delete params?.order
 
         const url = apiPath(table, null, params)
 
@@ -58,6 +61,8 @@ export function useUpdateEntity() {
             delete params.lang
         }
 
+        delete params?.offset
+
         const url = apiPath(table, id, params)
 
         try {
@@ -90,6 +95,7 @@ export function useDeleteEntity() {
 
     const deleteEntity = useCallback(async (table, id, params) => {
         delete params?.lang
+        delete params?.offset
 
         const url = apiPath(table, id, params)
 
