@@ -322,7 +322,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             ({ payload }) => mutate((prev) => amendEntity(prev, payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate((prev) => prev.map((page) => {
+            ({ payload }) => mutate((prev) => JSON.parse(JSON.stringify(prev)).map((page) => {
                 const filteredData = page.data.filter((entity) => entity.id != payload.id)
                 return { ...page, data: filteredData }
             }), false)
@@ -341,24 +341,24 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     // Append an entity to the data & filter out duplicates
     const appendEntity = useCallback((data, newEntity) => {
         // Filter this entity from all pages then push it to the first page
-        const filteredPages = data.map((page) => {
+        const filteredPages = JSON.parse(JSON.stringify(data)).map((page) => {
             const filteredData = page.data.filter((entity) => entity.id != newEntity.id)
             return { ...page, data: filteredData }
         })
 
         filteredPages[0].data.push(newEntity)
 
-        return [...filteredPages]
+        return filteredPages
     }, [])
 
     const amendEntity = useCallback((data, newEntity) => {
         // Find this entity in a page and replace it with newEntity
-        const amendedPages = data.map((page) => {
+        const amendedPages = JSON.parse(JSON.stringify(data)).map((page) => {
             const amendedData = page.data.map((entity) => entity.id == newEntity.id ? newEntity : entity)
             return { ...page, data: amendedData }
         })
 
-        return [...amendedPages]
+        return amendedPages
     }, [])
 
     const mutateEntity = useCallback((entity) => {
@@ -435,11 +435,11 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: (_, data) => data.map((page) => {
+                populateCache: (_, data) => JSON.parse(JSON.stringify(data)).map((page) => {
                     const filteredData = page.data.filter((entity) => entity.id != id)
                     return { ...page, data: filteredData }
                 }),
-                optimisticData: (data) => data.map((page) => {
+                optimisticData: (data) => JSON.parse(JSON.stringify(data)).map((page) => {
                     const filteredData = page.data.filter((entity) => entity.id != id)
                     return { ...page, data: filteredData }
                 }),
