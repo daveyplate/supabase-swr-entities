@@ -110,7 +110,6 @@ export async function translateEntity(table, entity, lang) {
  */
 export async function getEntity(table, id, params = {}, select = null) {
     const lang = params?.lang
-    delete params.lang
 
     const { data, error } = await entityQuery(table, "select", {}, { id, ...params }, select)
 
@@ -138,7 +137,6 @@ export async function getEntity(table, id, params = {}, select = null) {
  */
 export async function getEntities(table, params = {}, select = null) {
     const lang = params?.lang
-    delete params.lang
 
     const { data: entities, error, count } = await entityQuery(table, "select", {}, params, select)
 
@@ -266,6 +264,7 @@ export async function deleteEntities(table, params = {}) {
  * @returns {PostgrestFilterBuilder} Query for the SQL table
  */
 export async function entityQuery(table, method, values, params, select) {
+    delete params?.lang
     const entitySchemas = await loadEntitySchemas()
     const supabase = createAdminClient()
 

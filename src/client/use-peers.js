@@ -175,7 +175,7 @@ export function usePeers({
         const keepPeerCurrent = () => {
             const currentPeer = peers.find((p) => p.id == peer.id)
             if (currentPeer) {
-                updatePeer(currentPeer, { updated_at: new Date() })
+                updatePeer(currentPeer.id, { updated_at: new Date() })
             } else {
                 createPeer({ id: peer.id, room })
             }
