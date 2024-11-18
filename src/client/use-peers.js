@@ -218,6 +218,8 @@ export function usePeers({
      * @param {DataConnection[]} [connections] - Limit the connections to send to
      */
     const sendData = useCallback((data, connections = null) => {
+        if (!enabled) return
+
         // Store the data in messageHistory for 10 seconds so we can send it on connection
         messageHistory.current.push(data)
 
@@ -233,7 +235,7 @@ export function usePeers({
                 connection.send(data)
             }
         })
-    }, [peers, connectionsRef.current, JSON.stringify(allowedUsers)])
+    }, [enabled, peers, connectionsRef.current, JSON.stringify(allowedUsers)])
 
     /**
      * Get the peer for a connection
@@ -241,14 +243,18 @@ export function usePeers({
      * @returns {any} The peer
      */
     const getPeer = useCallback((connection) => {
+        if (!enabled) return
+
         return peers?.find((peer) => peer.id == connection?.peer)
-    }, [peers, connectionsRef.current])
+    }, [enabled, peers, connectionsRef.current])
 
     /**
      * Send message history to a connection
      * @param {DataConnection} connection - The connection
      */
     const sendMessageHistory = useCallback((connection) => {
+        if (!enabled) return
+
         const connectionPeer = getPeer(connection)
 
         if (allowedUsers.includes("*") || allowedUsers.includes(connectionPeer?.user_id)) {
@@ -257,7 +263,7 @@ export function usePeers({
                 connection.send(data)
             })
         }
-    }, [JSON.stringify(allowedUsers), getPeer])
+    }, [enabled, JSON.stringify(allowedUsers), getPeer])
 
     /**
      * Get the connections for a user ID
@@ -265,11 +271,13 @@ export function usePeers({
      * @returns {DataConnection} The connection
      */
     const getConnectionsForUser = useCallback((userId) => {
+        if (!enabled) return
+
         return connectionsRef.current.filter((connection) => {
             const connectionPeer = getPeer(connection)
             return connectionPeer?.user_id == userId
         })
-    }, [peers, connectionsRef.current])
+    }, [enabled, peers, connectionsRef.current])
 
     /** 
      * Check if a user is online

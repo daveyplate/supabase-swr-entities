@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useCallback } from "react"
-import { SWRResponse, MutatorOptions, SWRConfiguration } from "swr"
+import { SWRResponse, SWRConfiguration } from "swr"
 import { SWRInfiniteResponse } from "swr/infinite"
 import { useSession } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
@@ -51,9 +51,9 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {number} limit - The limit of entities per page
  * @property {number} offset - The current offset
  * @property {boolean} hasMore - Whether there are more entities
- * @property {(entity: object) => Promise<{error: Error, entity: object}>} createEntity - The function to create an entity
- * @property {(id: string, fields: object) => Promise<{error: Error}>} updateEntity - The function to update an entity
- * @property {(id: string) => Promise<{error: Error}>} deleteEntity - The function to delete an entity
+ * @property {(entity: object, optimisticFields?: object) => Promise<{entity?: object, error?: Error}>} createEntity - The function to create an entity
+ * @property {(id: string, fields: object) => Promise<{entity?: object, error: Error}>} updateEntity - The function to update an entity
+ * @property {(id: string) => Promise<{error?: Error}>} deleteEntity - The function to delete an entity
  * @typedef {SWRResponse & EntitiesResponseType & PeersResult} EntitiesResponse
  * @typedef {SWRInfiniteResponse & EntitiesResponseType & PeersResult} InfiniteEntitiesResponse
  */
@@ -78,8 +78,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     const mutateEntity = useMutateEntity()
 
     const path = apiPath(table, null, params)
-    const swrResponse = useCache(path, swrConfig)
-    const { data, mutate } = swrResponse
+    const swr = useCache(path, swrConfig)
+    const { data, mutate } = swr
     const { data: entities, count, limit, offset, has_more: hasMore } = useMemo(() => data || {}, [data])
 
     // Reload the entities whenever realtime data is received
@@ -88,12 +88,12 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [])
 
     // Clean out the params for the room name
-    const dataParams = params ? { ...params } : null
-    delete dataParams?.lang
-    delete dataParams?.offset
-    delete dataParams?.limit
+    const roomNameParams = params ? { ...params } : null
+    delete roomNameParams?.lang
+    delete roomNameParams?.offset
+    delete roomNameParams?.limit
 
-    const roomName = Object.keys(dataParams || {}).length ? `${table}_${JSON.stringify(dataParams)}` : table
+    const roomName = Object.keys(roomNameParams || {}).length ? `${table}_${JSON.stringify(roomNameParams)}` : table
 
     const peersResult = realtimeOptions?.provider == "peerjs" ? usePeers({
         enabled: realtimeOptions?.enabled,
@@ -127,62 +127,85 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         const newEntity = { ...entity, user_id: session?.user.id, locale: params?.lang }
         if (!newEntity.id) newEntity.id = v4()
 
-        const result = await mutate(async () => createEntity(table, newEntity, params, optimisticFields), {
-            populateCache: (entity, data) => appendEntity(data, entity),
-            optimisticData: (data) => appendEntity(data, {
-                created_at: new Date(),
-                ...newEntity,
-                ...optimisticFields
-            }),
-            revalidate: false
-        })
+        try {
+            const entity = await mutate(async () => {
+                const { entity, error } = await createEntity(table, newEntity, params, optimisticFields)
+                if (error) throw error
 
-        if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-            sendData({ action: "create_entity" })
+                return entity
+            }, {
+                populateCache: (entity, data) => appendEntity(data, entity),
+                optimisticData: (data) => appendEntity(data, {
+                    created_at: new Date(),
+                    ...newEntity,
+                    ...optimisticFields
+                }),
+                revalidate: false
+            })
+
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "create_entity" })
+            }
+
+            return { entity }
+        } catch (error) {
+            return { error }
         }
-
-        return result
     }, [session, sendData, JSON.stringify(params)])
 
     const update = useCallback(async (id, fields) => {
-        const result = await mutate(async () => updateEntity(table, id, fields, params), {
-            populateCache: (entity, data) => appendEntity(data, entity),
-            optimisticData: (data) => {
-                const entity = data.data.find((e) => e.id == id)
-                if (!entity) return data
+        try {
+            const entity = await mutate(async () => {
+                const { entity, error } = await updateEntity(table, id, fields, params)
+                if (error) throw error
 
-                return appendEntity(data, {
-                    updated_at: new Date(),
-                    ...entity,
-                    ...fields
-                })
-            },
-            revalidate: false
-        })
+                return entity
+            }, {
+                populateCache: (entity, data) => appendEntity(data, entity),
+                optimisticData: (data) => {
+                    const entity = data.data.find((e) => e.id == id)
+                    if (!entity) return data
 
-        if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-            sendData({ action: "update_entity" })
+                    return appendEntity(data, {
+                        updated_at: new Date(),
+                        ...entity,
+                        ...fields
+                    })
+                },
+                revalidate: false
+            })
+
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "update_entity" })
+            }
+
+            return { entity }
+        } catch (error) {
+            return { error }
         }
-
-        return result
     }, [session, sendData, JSON.stringify(params)])
 
     const doDelete = useCallback(async (id) => {
-        const result = await mutate(async () => deleteEntity(table, id, params), {
-            populateCache: (_, data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
-            optimisticData: (data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
-            revalidate: false
-        })
+        try {
+            await mutate(async () => {
+                const { error } = await deleteEntity(table, id, params)
+                if (error) throw error
+            }, {
+                populateCache: (_, data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
+                optimisticData: (data) => ({ ...data, data: data.data.filter((e) => e.id != id) }),
+                revalidate: false
+            })
 
-        if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-            sendData({ action: "delete_entity" })
+            if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
+                sendData({ action: "delete_entity" })
+            }
+        } catch (error) {
+            return { error }
         }
-
-        return result
     }, [session, sendData, JSON.stringify(params)])
 
     return {
-        ...swrResponse,
+        ...swr,
         ...peersResult,
         entities,
         count,
