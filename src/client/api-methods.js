@@ -35,7 +35,7 @@ export function useAPI() {
         if (!res.ok) {
             // Attach extra info to the error object.
             const json = await res.json()
-            const error = new Error(json?.error?.message || 'An error occurred while fetching the data.')
+            const error = new Error(json?.error?.message || 'Failed to fetch')
             error.status = res.status
 
             console.error(error)
