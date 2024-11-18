@@ -315,12 +315,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         if (!realtimeOptions?.enabled) return
         if (realtimeOptions?.provider != "supabase") return
 
+        console.log("data changed...")
+
         const channelA = supabase.channel(room, { config: { private: true } })
 
         // Subscribe to the Channel
         channelA.on('broadcast',
             { event: 'create_entity' },
-            ({ payload }) => mutate(appendEntity(payload), false)
+            ({ payload }) => {
+                console.log("create_entity", payload)
+                mutate(appendEntity(payload), false)
+            }
         ).on('broadcast',
             { event: 'update_entity' },
             ({ payload }) => mutate(amendEntity(payload), false)
