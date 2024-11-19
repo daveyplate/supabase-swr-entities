@@ -177,7 +177,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "create_entity" })
+                sendData({ event: "create_entity" })
             }
 
             return { entity }
@@ -218,7 +218,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "update_entity" })
+                sendData({ event: "update_entity" })
             }
 
             return { entity }
@@ -247,7 +247,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "delete_entity" })
+                sendData({ event: "delete_entity" })
             }
         } catch (error) {
             return { error }
@@ -413,7 +413,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "create_entity" })
+                sendData({ event: "create_entity" })
             }
 
             return { entity }
@@ -454,7 +454,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "update_entity" })
+                sendData({ event: "update_entity" })
             }
 
             return { entity }
@@ -484,7 +484,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
             })
 
             if (realtimeOptions?.enabled && realtimeOptions?.provider == "peerjs" && !realtimeOptions?.listenOnly) {
-                sendData({ action: "delete_entity" })
+                sendData({ event: "delete_entity" })
             }
         } catch (error) {
             return { error }
