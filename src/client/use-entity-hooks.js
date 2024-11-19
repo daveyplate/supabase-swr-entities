@@ -155,7 +155,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
         ).subscribe()
 
         return () => channelA.unsubscribe()
-    }, [data])
+    }, [mutate, appendEntity, removeEntity, realtimeOptions?.enabled, realtimeOptions?.provider])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
         const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: params?.lang }
@@ -317,38 +317,37 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     }, [table, entities, JSON.stringify(params)])
 
     // Append an entity to the data & filter out duplicates
-    const appendEntity = useCallback((newEntity) => {
+    const appendEntity = useCallback((data, newEntity) => {
         // Filter this entity from all pages then push it to the first page
-        const filteredPages = removeEntity(newEntity.id)
+        const filteredPages = removeEntity(data, newEntity.id)
         filteredPages[0].data.push(newEntity)
 
         return filteredPages
-    }, [data])
+    }, [])
 
-    const amendEntity = useCallback((newEntity) => {
+    const amendEntity = useCallback((data, newEntity) => {
         // Find this entity in a page and replace it with newEntity
-        const amendedPages = JSON.parse(JSON.stringify(data)).map((page) => {
+        const amendedPages = data.map((page) => {
             const amendedData = page.data.map((entity) => entity.id == newEntity.id ? newEntity : entity)
             return { ...page, data: amendedData }
         })
 
         return amendedPages
-    }, [data])
+    }, [])
 
-    const removeEntity = useCallback((id) => {
+    const removeEntity = useCallback((data, id) => {
         // Filter this entity from all pages
-        return JSON.parse(JSON.stringify(data)).map((page) => {
+        return data.map((page) => {
             const filteredData = page.data.filter((entity) => entity.id != id)
             return { ...page, data: filteredData }
         })
-    }, [data])
+    }, [])
 
     const mutateEntity = useCallback((entity) => {
         if (!entity || !data) return
 
         mutate(amendEntity(data, entity), false)
-    }, [data])
-
+    }, [data, mutate, amendEntity])
 
     // Supabase Realtime
     useEffect(() => {
@@ -361,18 +360,20 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         channelA.on('broadcast',
             { event: 'create_entity' },
             ({ payload }) => {
-                mutate(appendEntity(payload), false)
+                mutate((prev) => appendEntity(prev, payload), false)
             }
         ).on('broadcast',
             { event: 'update_entity' },
-            ({ payload }) => mutate(amendEntity(payload), false)
+            ({ payload }) => mutate((prev) => amendEntity(prev, payload), false)
         ).on('broadcast',
             { event: 'delete_entity' },
-            ({ payload }) => mutate(removeEntity(payload.id), false)
+            ({ payload }) => mutate((prev) => removeEntity(prev, payload.id), false)
         ).subscribe()
 
-        return () => channelA.unsubscribe()
-    }, [data])
+        return () => {
+            channelA.unsubscribe()
+        }
+    }, [realtimeOptions?.enabled, realtimeOptions?.provider])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
         // Mutate the new entity directly to the parent cache
@@ -385,12 +386,15 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
                 return entity
             }, {
-                populateCache: (entity) => appendEntity(entity),
-                optimisticData: () => appendEntity({
-                    created_at: new Date(),
-                    ...newEntity,
-                    ...optimisticFields
-                }),
+                populateCache: (entity, currentData) => appendEntity(currentData, entity),
+                optimisticData: (currentData) => {
+                    return appendEntity(currentData, {
+                        created_at: new Date(),
+                        ...newEntity,
+                        ...optimisticFields
+
+                    })
+                },
                 revalidate: false
             })
 
@@ -402,7 +406,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [data, session, sendData, JSON.stringify(params)])
+    }, [
+        session,
+        mutate,
+        createEntity,
+        appendEntity,
+        realtimeOptions?.enabled,
+        realtimeOptions?.provider,
+        realtimeOptions?.listenOnly,
+        sendData,
+        JSON.stringify(params)
+    ])
 
     const update = useCallback(async (id, fields) => {
         try {
@@ -412,12 +426,12 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
                 return entity
             }, {
-                populateCache: (entity) => amendEntity(entity),
-                optimisticData: () => {
-                    const entity = data?.map(page => page.data).flat().find((e) => e.id == id)
-                    if (!entity) return data
+                populateCache: (entity, currentData) => amendEntity(currentData, entity),
+                optimisticData: (currentData) => {
+                    const entity = currentData?.map(page => page.data).flat().find((e) => e.id == id)
+                    if (!entity) return currentData
 
-                    return amendEntity({
+                    return amendEntity(currentData, {
                         updated_at: new Date(),
                         ...entity,
                         ...fields
@@ -434,7 +448,17 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [data, session, sendData, JSON.stringify(params)])
+    }, [
+        session,
+        mutate,
+        updateEntity,
+        amendEntity,
+        realtimeOptions?.enabled,
+        realtimeOptions?.provider,
+        realtimeOptions?.listenOnly,
+        sendData,
+        JSON.stringify(params)
+    ])
 
     const doDelete = useCallback(async (id) => {
         try {
@@ -442,8 +466,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
                 const { error } = await deleteEntity(table, id, params)
                 if (error) throw error
             }, {
-                populateCache: removeEntity(id),
-                optimisticData: removeEntity(id),
+                populateCache: (_, currentData) => removeEntity(currentData, id),
+                optimisticData: (currentData) => removeEntity(currentData, id),
                 revalidate: false
             })
 
@@ -453,7 +477,16 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
         } catch (error) {
             return { error }
         }
-    }, [data, session, sendData, JSON.stringify(params)])
+    }, [
+        mutate,
+        deleteEntity,
+        removeEntity,
+        realtimeOptions?.enabled,
+        realtimeOptions?.provider,
+        realtimeOptions?.listenOnly,
+        sendData,
+        JSON.stringify(params)
+    ])
 
     return {
         ...swr,

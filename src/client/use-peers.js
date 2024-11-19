@@ -45,6 +45,17 @@ export function usePeers({
     const [dataQueue, setDataQueue] = useState([])
     const messageHistory = useRef([])
 
+    /**
+     * Get the peer for a connection
+     * @param {DataConnection} connection - The connection
+     * @returns {any} The peer
+     */
+    const getPeer = useCallback((connection) => {
+        if (!enabled) return
+
+        return peers?.find((peer) => peer.id == connection?.peer)
+    }, [enabled, peers, connectionsRef.current])
+
     // Data queue handler
     useEffect(() => {
         if (!peers) return
@@ -66,7 +77,7 @@ export function usePeers({
         if (newDataQueue.length != dataQueue.length) {
             setDataQueue(newDataQueue)
         }
-    }, [peers, dataQueue, JSON.stringify(allowedUsers)])
+    }, [peers, getPeer, dataQueue, JSON.stringify(allowedUsers)])
 
     /**
      * Prepare connection handlers
@@ -235,18 +246,7 @@ export function usePeers({
                 connection.send(data)
             }
         })
-    }, [enabled, peers, connectionsRef.current, JSON.stringify(allowedUsers)])
-
-    /**
-     * Get the peer for a connection
-     * @param {DataConnection} connection - The connection
-     * @returns {any} The peer
-     */
-    const getPeer = useCallback((connection) => {
-        if (!enabled) return
-
-        return peers?.find((peer) => peer.id == connection?.peer)
-    }, [enabled, peers, connectionsRef.current])
+    }, [enabled, getPeer, connectionsRef.current, JSON.stringify(allowedUsers)])
 
     /**
      * Send message history to a connection
@@ -276,7 +276,7 @@ export function usePeers({
             const connectionPeer = getPeer(connection)
             return connectionPeer?.user_id == userId
         })
-    }, [enabled, peers, connectionsRef.current])
+    }, [enabled, getPeer, connectionsRef.current])
 
     /** 
      * Check if a user is online
