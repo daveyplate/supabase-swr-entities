@@ -342,7 +342,7 @@ export async function entityQuery(table, method, values, params, select) {
     } else if (method == "update") {
         query = supabase.from(table).update(values)
     } else if (method == "upsert") {
-        query = supabase.from(table).upsert(values)
+        query = supabase.from(table).upsert(values, { ignoreDuplicates: true })
     }
 
     if (!query) return { error: 'Method not allowed' }
