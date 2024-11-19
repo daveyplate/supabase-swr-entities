@@ -19,18 +19,19 @@ export function useCreateEntity() {
     const { onError } = useSWRConfig()
 
     const createEntity = useCallback(async (table, entity, params, optimisticFields = {}) => {
-        const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: params?.lang }
-        delete params?.lang
-        delete params?.limit
-        delete params?.offset
-        delete params?.order
+        const createParams = params && { ...params }
+        const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: createParams?.lang }
+        delete createParams?.lang
+        delete createParams?.limit
+        delete createParams?.offset
+        delete createParams?.order
 
-        const url = apiPath(table, null, params)
+        const url = apiPath(table, null, createParams)
 
         try {
             const entity = await mutateEntity(table, newEntity.id, async () => {
                 return postAPI(url, newEntity)
-            }, params, {
+            }, createParams, {
                 optimisticData: { ...newEntity, ...optimisticFields },
                 revalidate: false
             })
@@ -56,19 +57,20 @@ export function useUpdateEntity() {
     const { onError } = useSWRConfig()
 
     const updateEntity = useCallback(async (table, id, fields, params) => {
-        if (params?.lang) {
-            fields.locale = params.lang
-            delete params.lang
+        const updateParams = params && { ...params }
+        if (updateParams?.lang) {
+            fields.locale = updateParams.lang
+            delete updateParams.lang
         }
 
-        delete params?.offset
+        delete updateParams?.offset
 
-        const url = apiPath(table, id, params)
+        const url = apiPath(table, id, updateParams)
 
         try {
             const entity = await mutateEntity(table, id, async () => {
                 return patchAPI(url, fields)
-            }, params, {
+            }, updateParams, {
                 optimisticData: (entity) => ({ updated_at: new Date(), ...entity, ...fields }),
                 revalidate: false
             })
@@ -94,16 +96,17 @@ export function useDeleteEntity() {
     const { onError } = useSWRConfig()
 
     const deleteEntity = useCallback(async (table, id, params) => {
-        delete params?.lang
-        delete params?.offset
+        const deleteParams = params && { ...params }
+        delete deleteParams?.lang
+        delete deleteParams?.offset
 
-        const url = apiPath(table, id, params)
+        const url = apiPath(table, id, deleteParams)
 
         try {
             await mutateEntity(table, id, async () => {
                 await deleteAPI(url)
                 return null
-            }, params, {
+            }, deleteParams, {
                 optimisticData: null,
                 revalidate: false
             })
