@@ -150,14 +150,8 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
 
         // Subscribe to the Channel
         channelA.on('broadcast',
-            { event: 'create_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
-        ).on('broadcast',
-            { event: 'update_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
-        ).on('broadcast',
-            { event: 'delete_entity' },
-            ({ payload }) => mutate((prev) => removeEntity(prev, payload.id), false)
+            { event: '*' },
+            () => mutate()
         ).subscribe()
 
         return () => channelA.unsubscribe()
@@ -389,14 +383,8 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
         // Subscribe to the Channel
         channelA.on('broadcast',
-            { event: 'create_entity' },
-            ({ payload }) => mutate((prev) => appendEntity(prev, payload), false)
-        ).on('broadcast',
-            { event: 'update_entity' },
-            ({ payload }) => mutate((prev) => amendEntity(prev, payload), false)
-        ).on('broadcast',
-            { event: 'delete_entity' },
-            ({ payload }) => mutate((prev) => removeEntity(prev, payload.id), false)
+            { event: '*' },
+            () => mutate()
         ).subscribe()
 
         return () => channelA.unsubscribe()
