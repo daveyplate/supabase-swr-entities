@@ -342,16 +342,14 @@ export async function entityQuery(table, method, values, params, select) {
     } else if (method == "update") {
         query = supabase.from(table).update(values)
     } else if (method == "upsert") {
-        query = supabase.from(table).upsert(values, { ignoreDuplicates: true, onConflict: '*' })
+        query = supabase.from(table).upsert(values, { ignoreDuplicates: !!entitySchema.ignoreDuplicates, onConflict: entitySchema.onConflict })
     }
 
     if (!query) return { error: 'Method not allowed' }
 
     // Select values with default fallback
-    //  if (method != "delete" && (method != "update" || params.id)) {
     const selectValues = (select || entitySchema.select)?.join(', ')
     query = query.select(selectValues, { count: 'exact' })
-    // }
 
     // Sort order
     const order = params.order || entitySchema.defaultOrder
@@ -363,9 +361,6 @@ export async function entityQuery(table, method, values, params, select) {
             const field = isDesc ? param.slice(1) : param
             query = query.order(field, { ascending: !isDesc })
         })
-    } else if (method == "select") {
-        // Default sorting if no order parameter is provided
-        // query = query.order('created_at', { ascending: true })
     }
 
     // Pagination
