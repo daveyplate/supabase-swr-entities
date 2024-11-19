@@ -178,7 +178,7 @@ export async function createEntity(table, values = {}, select = null) {
 
     const entity = data[0]
 
-    sendRealtime(table, 'create_entity', entity)
+    await sendRealtime(table, 'create_entity', entity)
 
     return { entity }
 }
@@ -194,7 +194,7 @@ async function sendRealtime(table, event, payload) {
         )
 
         if (entity) {
-            sendRealtime(entitySchema.realtimeParent.table, "update_entity", entity)
+            await sendRealtime(entitySchema.realtimeParent.table, "update_entity", entity)
         }
 
         return
@@ -206,15 +206,23 @@ async function sendRealtime(table, event, payload) {
     const supabase = createAdminClient()
     const channelB = supabase.channel(room, { config: { private: true } })
 
-    channelB.subscribe((status) => {
-        if (status != 'SUBSCRIBED') return
+    // Rewrite the subscribe so we have a promise that waits for the callback
 
-        channelB.send({
-            type: 'broadcast',
-            event,
-            payload,
+    await new Promise((resolve) => {
+        channelB.subscribe(async (status) => {
+            if (status != 'SUBSCRIBED') return resolve()
+
+            await channelB.send({
+                type: 'broadcast',
+                event,
+                payload,
+            })
+
+            resolve()
         })
     })
+
+    channelB.unsubscribe()
 }
 
 /**
@@ -236,7 +244,7 @@ export const updateEntity = async (table, id, values = {}, params = {}, select =
 
     const entity = data[0]
 
-    sendRealtime(table, 'update_entity', entity)
+    await sendRealtime(table, 'update_entity', entity)
 
     return { entity }
 }
@@ -256,9 +264,9 @@ export async function updateEntities(table, values = {}, params = {}) {
         return { error }
     }
 
-    entities.forEach((entity) => {
-        sendRealtime(table, 'update_entity', entity)
-    })
+    await Promise.all(entities.map(async entity => {
+        await sendRealtime(table, 'update_entity', entity)
+    }))
 
     return { entities }
 }
@@ -280,7 +288,7 @@ export async function deleteEntity(table, id, params = {}) {
 
     const entity = data[0]
 
-    sendRealtime(table, 'delete_entity', entity)
+    await sendRealtime(table, 'delete_entity', entity)
 
     return { entity }
 }
@@ -299,9 +307,9 @@ export async function deleteEntities(table, params = {}) {
         return { error }
     }
 
-    entities.forEach((entity) => {
-        sendRealtime(table, 'delete_entity', entity)
-    })
+    await Promise.all(entities.map(async entity => {
+        await sendRealtime(table, 'update_entity', entity)
+    }))
 
     return { entities }
 }
