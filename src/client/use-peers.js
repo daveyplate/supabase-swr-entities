@@ -187,7 +187,7 @@ export function usePeers({
             const currentPeer = peers.find((p) => p.id == peer.id)
             if (currentPeer) {
                 updatePeer(currentPeer.id, { updated_at: new Date() })
-            } else {
+            } else if (peer.id) {
                 createPeer({ id: peer.id, room })
             }
         }

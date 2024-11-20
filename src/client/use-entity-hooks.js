@@ -111,6 +111,10 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     useEffect(() => {
         entities?.forEach((entity) => {
             mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
+
+            entity?.user && mutateChild("profiles", entity.user.id, entity.user, params?.lang ? { lang: params.lang } : null)
+            entity?.sender && mutateChild("profiles", entity.sender.id, entity.sender, params?.lang ? { lang: params.lang } : null)
+            entity?.recipient && mutateChild("profiles", entity.recipient.id, entity.recipient, params?.lang ? { lang: params.lang } : null)
         })
     }, [entities, mutateChild, table, JSON.stringify(params)])
 
@@ -340,6 +344,10 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
     useEffect(() => {
         entities?.forEach((entity) => {
             mutateChild(table, entity.id, entity, params?.lang ? { lang: params.lang } : null)
+
+            entity?.user && mutateChild("profiles", entity.user.id, entity.user, params?.lang ? { lang: params.lang } : null)
+            entity?.sender && mutateChild("profiles", entity.sender.id, entity.sender, params?.lang ? { lang: params.lang } : null)
+            entity?.recipient && mutateChild("profiles", entity.recipient.id, entity.recipient, params?.lang ? { lang: params.lang } : null)
         })
     }, [entities, mutateChild, table, JSON.stringify(params)])
 
