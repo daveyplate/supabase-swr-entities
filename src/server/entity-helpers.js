@@ -16,7 +16,14 @@ import usersSchema from '../schemas/users.schema.json'
 export function createAdminClient() {
     const supabase = createClientPrimitive(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+            realtime: {
+                params: {
+                    log_level: 'info',
+                },
+            },
+        }
     )
 
     return supabase
@@ -204,25 +211,17 @@ async function sendRealtime(table, event, payload) {
         `${table}:${payload[entitySchema.realtimeIdentifier]}`
         : table
     const supabase = createAdminClient()
-    const channelB = supabase.channel(room, { config: { private: true } })
+    const channel = supabase.channel(room, { config: { private: true } })
 
-    // Rewrite the subscribe so we have a promise that waits for the callback
-
-    await new Promise((resolve) => {
-        channelB.subscribe(async (status) => {
-            if (status != 'SUBSCRIBED') return resolve()
-
-            await channelB.send({
-                type: 'broadcast',
-                event,
-                payload,
-            })
-
-            resolve()
-        })
+    // No need to subscribe to channel
+    channel.send({
+        type: 'broadcast',
+        event,
+        payload,
     })
 
-    channelB.unsubscribe()
+    // Remember to clean up the channel
+    supabase.removeChannel(channel)
 }
 
 /**
