@@ -135,7 +135,7 @@ export function useUpdateEntities() {
 
         // Patch the entities via API
         try {
-            await patchAPI(session, path, fields)
+            await patchAPI(path, fields)
         } catch (error) {
             onError(error, path)
             return { error }
@@ -161,7 +161,7 @@ export function useDeleteEntities() {
 
         // Delete the entities via API
         try {
-            await deleteAPI(session, path)
+            await deleteAPI(path)
         } catch (error) {
             onError(error, path)
             return { error }
