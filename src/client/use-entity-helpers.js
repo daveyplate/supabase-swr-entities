@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { useSWRConfig, MutatorOptions } from "swr"
-import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
+import { useSession } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
 import { apiPath } from "./client-utils"

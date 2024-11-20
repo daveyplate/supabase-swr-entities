@@ -1,6 +1,5 @@
 import { SupabaseClient, PostgrestError, User } from '@supabase/supabase-js'
-
-import { createAdminClient } from "./entity-helpers"
+import { createAdminClient } from '../supabase/service-role'
 
 export const METHOD_MAP = {
     "GET": "select",

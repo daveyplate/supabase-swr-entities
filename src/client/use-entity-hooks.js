@@ -28,6 +28,7 @@ import { useCache, useInfiniteCache } from "./use-cache-hooks"
 export function useEntity(table, id, params = null, swrConfig = null) {
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
+    const mutateEntity = useMutateEntity()
     const path = apiPath(table, id, params)
     const swr = useCache(path, swrConfig)
     const { data } = swr
@@ -35,6 +36,14 @@ export function useEntity(table, id, params = null, swrConfig = null) {
     const entity = useMemo(() => id ? data : data?.data?.[0], [data])
     const update = useCallback(async (fields) => updateEntity(table, id, fields, params), [table, id, JSON.stringify(params)])
     const doDelete = useCallback(async () => deleteEntity(table, id, params), [table, id, JSON.stringify(params)])
+
+    // Pre-mutate the entity for ID for "me" or in case that ID isn't set
+    useEffect(() => {
+        if (!entity) return
+        if (id == entity?.id) return
+
+        mutateEntity(table, entity.id, entity, params)
+    }, [entity])
 
     return {
         ...swr,

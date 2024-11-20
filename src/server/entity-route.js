@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-import { getEntity, updateEntity, deleteEntity, loadEntitySchemas, createAdminClient, loadEntitySchema } from './entity-helpers'
+import { getEntity, updateEntity, deleteEntity, loadEntitySchema } from './entity-helpers'
 import { authorizeParams, METHOD_MAP } from './route-helpers'
 
 /**

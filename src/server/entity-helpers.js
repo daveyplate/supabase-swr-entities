@@ -2,32 +2,13 @@ import path from 'path'
 import { promises as fs } from 'fs'
 import translate from '@iamtraction/google-translate'
 
-import { SupabaseClient, PostgrestError } from '@supabase/supabase-js'
+import { PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
-import { createClient as createClientPrimitive } from '@supabase/supabase-js'
 
 import defaultSchema from '../schemas/default.schema.json'
 import usersSchema from '../schemas/users.schema.json'
-
-/**
- * Create a Supabase client with service role key
- * @returns {SupabaseClient} Supabase service role client
- */
-export function createAdminClient() {
-    const supabase = createClientPrimitive(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY,
-        {
-            realtime: {
-                params: {
-                    log_level: 'info',
-                },
-            },
-        }
-    )
-
-    return supabase
-}
+import { createAdminClient } from '../supabase/service-role'
+import { createNotification } from './notifications'
 
 /**
  * Load an entity schema from entity.schemas.js
@@ -85,7 +66,6 @@ export async function translateEntity(table, entity, lang) {
     for (const key of localizedColumns) {
         if (entity[key]?.[fromLocale]) {
             if (!entity[key][lang]) {
-                let fromLocale = entity.locale
                 let localeValue = entity[key][fromLocale]
 
                 if (!localeValue) {
@@ -98,6 +78,15 @@ export async function translateEntity(table, entity, lang) {
                     entity[key][lang] = translatedValue.text
                     translatedFields[key] = entity[key]
                 }
+            }
+        }
+    }
+
+    // Clean out all locale fields that aren't fromLocale or lang
+    for (const key of localizedColumns) {
+        for (const locale in entity[key]) {
+            if (![fromLocale, lang].includes(locale)) {
+                delete entity[key][locale]
             }
         }
     }
@@ -124,10 +113,10 @@ export async function getEntity(table, id, params = {}, select = null) {
         return { error }
     }
 
-    const entity = data?.length > 0 ? data[0] : null
+    const entity = data[0]
 
     // Dynamic realtime translation
-    if (entity && lang) {
+    if (lang) {
         await translateEntity(table, entity, lang)
     }
 
@@ -153,16 +142,9 @@ export async function getEntities(table, params = {}, select = null) {
 
     // Dynamic realtime translation
     if (lang) {
-        let translationCount = 0
-        for (const entity of entities) {
-            translateEntity(table, entity, lang).then(() => {
-                translationCount++
-            })
-        }
-
-        while (translationCount < entities.length) {
-            await new Promise(resolve => setTimeout(resolve))
-        }
+        await Promise.all(entities.map(async entity => {
+            await translateEntity(table, entity, lang)
+        }))
     }
 
     return { entities, count: parseInt(count), limit: parseInt(params.limit || 100), offset: parseInt(params.offset || 0) }
@@ -185,7 +167,8 @@ export async function createEntity(table, values = {}, select = null) {
 
     const entity = data[0]
 
-    await sendRealtime(table, 'create_entity', entity)
+    await sendRealtime(table, "create_entity", entity)
+    await createNotification(table, "upsert", entity)
 
     return { entity }
 }
