@@ -162,7 +162,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
     }, [realtimeOptions?.enabled, realtimeOptions?.provider, mutate, room])
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
-        const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: params?.lang }
+        const newEntity = { id: v4(), ...entity, locale: params?.lang }
 
         try {
             const entity = await mutate(async () => {
@@ -400,7 +400,7 @@ export function useInfiniteEntities(table, params = null, swrConfig = null, real
 
     const create = useCallback(async (entity, optimisticFields = {}) => {
         // Mutate the new entity directly to the parent cache
-        const newEntity = { id: v4(), ...entity, user_id: session?.user.id }
+        const newEntity = { id: v4(), ...entity, locale: params?.lang }
 
         try {
             const entity = await mutate(async () => {

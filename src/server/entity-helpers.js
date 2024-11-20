@@ -401,8 +401,6 @@ export async function entityQuery(table, method, values, params, select) {
                 query = query.gte(key.slice(0, -3), value)
             } else if (key.endsWith('_lte')) {
                 query = query.lte(key.slice(0, -3), value)
-                // } else if (key == "user_id") {
-                //    query = query.or(`user_id.eq.${value},user_id.is.null`)
             } else if (value == "null" || value == null) {
                 query = query.is(key, null)
             } else {

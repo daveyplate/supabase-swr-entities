@@ -20,7 +20,7 @@ export function useCreateEntity() {
 
     const createEntity = useCallback(async (table, entity, params, optimisticFields = {}) => {
         const createParams = params && { ...params }
-        const newEntity = { id: v4(), ...entity, user_id: session?.user.id, locale: createParams?.lang }
+        const newEntity = { id: v4(), ...entity, locale: createParams?.lang }
         delete createParams?.lang
         delete createParams?.limit
         delete createParams?.offset
