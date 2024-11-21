@@ -35,14 +35,14 @@ export async function createNotification(table, method, entity) {
         },
         image_url: getNestedValue(entity, notificationTemplate.imageUrlColumn),
         url: replaceBrackets(notificationTemplate.url, entity),
-        link_as: replaceBrackets(notificationTemplate.linkAs, entity),
+        url_as: replaceBrackets(notificationTemplate.urlAs, entity),
         primary_label: notificationTemplate.primaryLabel && {
             en: replaceBrackets(notificationTemplate.primaryLabel.en, entity)
         },
         primary_action: notificationTemplate.primaryAction && {
             ...notificationTemplate.primaryAction,
             url: replaceBrackets(notificationTemplate.primaryAction.url, entity),
-            linkAs: replaceBrackets(notificationTemplate.primaryAction.linkAs, entity),
+            urlAs: replaceBrackets(notificationTemplate.primaryAction.urlAs, entity),
         },
         secondary_label: notificationTemplate.secondaryLabel && {
             en: replaceBrackets(notificationTemplate.secondaryLabel.en, entity)
@@ -50,7 +50,7 @@ export async function createNotification(table, method, entity) {
         secondary_action: notificationTemplate.secondaryAction && {
             ...notificationTemplate.secondaryAction,
             url: replaceBrackets(notificationTemplate.secondaryAction.url, entity),
-            linkAs: replaceBrackets(notificationTemplate.secondaryAction.linkAs, entity),
+            urlAs: replaceBrackets(notificationTemplate.secondaryAction.urlAs, entity),
         },
     }
 
