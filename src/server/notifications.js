@@ -23,8 +23,8 @@ function replaceBrackets(template, entity) {
 }
 
 export async function createNotification(table, method, entity) {
-    const { entitySchema: { notificationMethods, notificationTemplate } } = await loadEntitySchema(table)
-    if (!notificationMethods?.includes(method) && !notificationMethods?.includes('*')) return
+    const { entitySchema: { notifications, notificationTemplate } } = await loadEntitySchema(table)
+    if (!notifications) return
 
     // Use template fields and entity to construct notification JSON
     const notification = {
