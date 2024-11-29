@@ -1,5 +1,7 @@
 # supabase-swr-entities
 
+WIP - Full Readme coming soon (by end of 2024)
+
 ## Installation
 
 ```bash
