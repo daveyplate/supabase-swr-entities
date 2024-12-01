@@ -34,8 +34,8 @@ export function useEntity(table, id, params = null, swrConfig = null) {
     const { data } = swr
 
     const entity = useMemo(() => id ? data : data?.data?.[0], [data])
-    const update = useCallback(async (fields) => updateEntity(table, id, fields, params), [table, id, JSON.stringify(params)])
-    const doDelete = useCallback(async () => deleteEntity(table, id, params), [table, id, JSON.stringify(params)])
+    const update = useCallback(async (fields) => updateEntity(table, id, fields, params), [table, id, entity, JSON.stringify(params)])
+    const doDelete = useCallback(async () => deleteEntity(table, id, params), [table, id, entity, JSON.stringify(params)])
 
     // Pre-mutate the entity for ID for "me" or in case that ID isn't set
     useEffect(() => {

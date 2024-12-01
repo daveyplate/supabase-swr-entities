@@ -21,17 +21,19 @@ export function useCreateEntity() {
     const createEntity = useCallback(async (table, entity, params, optimisticFields = {}) => {
         const createParams = params && { ...params }
         const newEntity = { id: v4(), ...entity, locale: createParams?.lang }
-        delete createParams?.lang
         delete createParams?.limit
         delete createParams?.offset
         delete createParams?.order
+
+        const mutateParams = createParams && { ...createParams }
+        delete createParams?.lang
 
         const url = apiPath(table, null, createParams)
 
         try {
             const entity = await mutateEntity(table, newEntity.id, async () => {
                 return postAPI(url, newEntity)
-            }, createParams, {
+            }, mutateParams, {
                 optimisticData: { ...newEntity, ...optimisticFields },
                 revalidate: false
             })
@@ -58,19 +60,20 @@ export function useUpdateEntity() {
 
     const updateEntity = useCallback(async (table, id, fields, params) => {
         const updateParams = params && { ...params }
+        delete updateParams?.offset
+        const mutateParams = updateParams && { ...updateParams }
+
         if (updateParams?.lang) {
             fields.locale = updateParams.lang
             delete updateParams.lang
         }
-
-        delete updateParams?.offset
 
         const url = apiPath(table, id, updateParams)
 
         try {
             const entity = await mutateEntity(table, id, async () => {
                 return patchAPI(url, fields)
-            }, updateParams, {
+            }, mutateParams, {
                 optimisticData: (entity) => ({ updated_at: new Date(), ...entity, ...fields }),
                 revalidate: false
             })
@@ -97,8 +100,10 @@ export function useDeleteEntity() {
 
     const deleteEntity = useCallback(async (table, id, params) => {
         const deleteParams = params && { ...params }
-        delete deleteParams?.lang
         delete deleteParams?.offset
+        const mutateParams = deleteParams && { ...deleteParams }
+        delete deleteParams?.lang
+
 
         const url = apiPath(table, id, deleteParams)
 
@@ -106,7 +111,7 @@ export function useDeleteEntity() {
             await mutateEntity(table, id, async () => {
                 await deleteAPI(url)
                 return null
-            }, deleteParams, {
+            }, mutateParams, {
                 optimisticData: null,
                 revalidate: false
             })
