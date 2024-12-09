@@ -5,17 +5,27 @@
   "description": "An entity management library for Supabase and SWR",
   "type": "module",
   "exports": {
-    "./client": {
-      "default": "./src/index.js",
-      "import": "./src/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./server": {
-      "default": "./src/index.js",
-      "import": "./src/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/server.d.ts"
+    "./client": [
+      "./src/index.js",
+      {
+        "types": "./dist/index.d.ts"
+      }
+    ],
+    "./server": [
+      "./src/server.js",
+      {
+        "types": "./dist/server.d.ts"
+      }
+    ]
+  },
+  "typesVersions": {
+    "*": {
+      "client": [
+        "./dist/index"
+      ],
+      "server": [
+        "./dist/server"
+      ]
     }
   },
   "files": [
