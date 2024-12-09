@@ -2,10 +2,21 @@ import { useEffect, useMemo, useCallback } from "react"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
-import { usePeers, PeersResult } from "./use-peers.js"
+import { usePeers } from "./use-peers.js"
 import { apiPath } from "./client-utils.js"
 import { useCreateEntity, useDeleteEntity, useMutateEntity, useUpdateEntity } from "./use-entity-helpers.js"
 import { useCache, useInfiniteCache } from "./use-cache-hooks.js"
+
+/**
+ * @typedef {Object} PeersResult
+ * @property {any[]} peers - The peers
+ * @property {(data: any, connections: import("peerjs").DataConnection[]?) => void} sendData - Send data to connections
+ * @property {import("peerjs").DataConnection[]} connections - The connections
+ * @property {(userId: string) => boolean} isOnline - Check if a user is online
+ * @property {(connection: import("peerjs").DataConnection) => any} getPeer - Get the peer for a connection
+ * @property {(userId: string) => DataConnection} getConnection - Get the connection for a user
+ */
+
 
 /**
  * @typedef {object} EntityResponseType
