@@ -18,7 +18,7 @@ import { useEntities } from "./use-entity-hooks.js"
  * Peer Connections hook
  * @param {Object} props - The hook props
  * @param {boolean} [props.enabled=true] - Is the hook enabled
- * @param {(data: any, connection: DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
+ * @param {(data: any, connection: import("peerjs").DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
  * @param {string} [props.room=null] - The room to connect to
  * @param {string[]} [props.allowedUsers=["*"]] - The users allowed to send data to
  * @returns {PeersResult} The hook result
@@ -47,7 +47,7 @@ export function usePeers({
 
     /**
      * Get the peer for a connection
-     * @param {DataConnection} connection - The connection
+     * @param {import("peerjs").DataConnection} connection - The connection
      * @returns {any} The peer
      */
     const getPeer = useCallback((connection) => {
@@ -81,7 +81,7 @@ export function usePeers({
 
     /**
      * Prepare connection handlers
-     * @param {DataConnection} connection - The connection
+     * @param {import("peerjs").DataConnection} connection - The connection
      * @param {boolean} [inbound=false] - Is the connection inbound
      */
     const handleConnection = (connection, inbound = false) => {
@@ -226,7 +226,7 @@ export function usePeers({
     /**
      * Send data to all connections
      * @param {any} data - The data to send
-     * @param {DataConnection[]} [connections] - Limit the connections to send to
+     * @param {import("peerjs").DataConnection[]} [connections] - Limit the connections to send to
      */
     const sendData = useCallback((data, connections = null) => {
         if (!enabled) return
@@ -250,7 +250,7 @@ export function usePeers({
 
     /**
      * Send message history to a connection
-     * @param {DataConnection} connection - The connection
+     * @param {import("peerjs").DataConnection} connection - The connection
      */
     const sendMessageHistory = useCallback((connection) => {
         if (!enabled) return
@@ -267,7 +267,7 @@ export function usePeers({
     /**
      * Get the connections for a user ID
      * @param {string} userId - The user ID
-     * @returns {DataConnection} The connection
+     * @returns {import("peerjs").DataConnection} The connection
      */
     const getConnectionsForUser = useCallback((userId) => {
         if (!enabled) return
