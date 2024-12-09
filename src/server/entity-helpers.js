@@ -1,9 +1,9 @@
-import path from 'path'
-import { promises as fs } from 'fs'
 import translate from '@iamtraction/google-translate'
+import { promises as fs } from 'fs'
+import path from 'path'
 
-import { PostgrestError } from '@supabase/supabase-js'
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
+import { PostgrestError } from '@supabase/supabase-js'
 
 import defaultSchema from '../schemas/default.schema.json'
 import usersSchema from '../schemas/users.schema.json'
@@ -40,8 +40,8 @@ export async function loadEntitySchemas() {
         return global.entitySchemas
     }
 
-    const filePath = path.join(process.cwd(), 'entity.schemas.json');
-    const file = await fs.readFile(filePath, 'utf8');
+    const filePath = path.join(process.cwd(), 'entity.schemas.json')
+    const file = await fs.readFile(filePath, 'utf8')
 
     global.entitySchemas = JSON.parse(file)
     return global.entitySchemas
@@ -58,7 +58,7 @@ export async function translateEntity(table, entity, lang) {
     const entitySchema = entitySchemas.find(schema => schema.table === table)
     const localizedColumns = entitySchema.localizedColumns || []
 
-    const fromLocale = entity.locale
+    let fromLocale = entity.locale
 
     const translatedFields = {}
 
