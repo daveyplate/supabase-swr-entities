@@ -7,10 +7,14 @@
   "exports": {
     "./client": {
       "default": "./src/index.js",
+      "import": "./src/index.js",
+      "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./server": {
-      "default": "./src/server.js",
+      "default": "./src/index.js",
+      "import": "./src/index.js",
+      "require": "./dist/index.js",
       "types": "./dist/server.d.ts"
     }
   },
