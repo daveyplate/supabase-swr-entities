@@ -6,24 +6,12 @@
   "type": "module",
   "exports": {
     "./client": {
-      "require": "./src/index.js",
       "import": "./src/index.js",
       "types": "./dist/index.d.ts"
     },
     "./server": {
-      "require": "./src/server.js",
       "import": "./src/server.js",
       "types": "./dist/server.d.ts"
-    }
-  },
-  "typesVersions": {
-    "*": {
-      "client": [
-        "./dist/index"
-      ],
-      "server": [
-        "./dist/server"
-      ]
     }
   },
   "files": [
