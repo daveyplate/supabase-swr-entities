@@ -1,7 +1,7 @@
 import { useCallback } from "react"
 import useSWR, { SWRConfiguration, SWRResponse } from "swr"
 import useSWRInfinite, { SWRInfiniteResponse } from 'swr/infinite'
-import { useAPI } from "./api-methods"
+import { useAPI } from "./api-methods.js"
 
 /**
  * Wraps useSWR with custom fetcher and isLoading when provider isn't ready

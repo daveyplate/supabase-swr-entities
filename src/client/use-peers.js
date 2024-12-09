@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import Peer, { DataConnection } from "peerjs"
 import { v4 } from "uuid"
 
-import { useEntities } from "./use-entity-hooks"
+import { useEntities } from "./use-entity-hooks.js"
 
 /**
  * @typedef {Object} PeersResult

@@ -3,8 +3,8 @@ import { useSWRConfig, MutatorOptions } from "swr"
 import { useSession } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
-import { apiPath } from "./client-utils"
-import { useAPI } from "./api-methods"
+import { apiPath } from "./client-utils.js"
+import { useAPI } from "./api-methods.js"
 
 // TODO look into "lang" param.... and how that needs to be factored in for mutations
 

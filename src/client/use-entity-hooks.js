@@ -4,10 +4,10 @@ import { SWRInfiniteResponse } from "swr/infinite"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
-import { usePeers, PeersResult } from "./use-peers"
-import { apiPath } from "./client-utils"
-import { useCreateEntity, useDeleteEntity, useMutateEntity, useUpdateEntity } from "./use-entity-helpers"
-import { useCache, useInfiniteCache } from "./use-cache-hooks"
+import { usePeers, PeersResult } from "./use-peers.js"
+import { apiPath } from "./client-utils.js"
+import { useCreateEntity, useDeleteEntity, useMutateEntity, useUpdateEntity } from "./use-entity-helpers.js"
+import { useCache, useInfiniteCache } from "./use-cache-hooks.js"
 
 /**
  * @typedef {object} EntityResponseType

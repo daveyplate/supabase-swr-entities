@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-import { getEntity, updateEntity, deleteEntity, loadEntitySchema } from './entity-helpers'
-import { authorizeParams, METHOD_MAP } from './route-helpers'
+import { getEntity, updateEntity, deleteEntity, loadEntitySchema } from './entity-helpers.js'
+import { authorizeParams, METHOD_MAP } from './route-helpers.js'
 
 /**
  * Entity route handler
@@ -82,6 +82,6 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
 }
 
 function isValidUUID(uuid) {
-    const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89ABab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
-    return regex.test(uuid);
+    const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89ABab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
+    return regex.test(uuid)
 }

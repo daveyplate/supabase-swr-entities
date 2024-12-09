@@ -7,8 +7,8 @@ import { PostgrestError } from '@supabase/supabase-js'
 
 import defaultSchema from '../schemas/default.schema.json'
 import usersSchema from '../schemas/users.schema.json'
-import { createAdminClient } from '../supabase/service-role'
-import { createNotification } from './notifications'
+import { createAdminClient } from '../supabase/service-role.js'
+import { createNotification } from './notifications.js'
 
 /**
  * Load an entity schema from entity.schemas.js

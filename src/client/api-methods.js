@@ -1,5 +1,5 @@
 import { useSession } from "@supabase/auth-helpers-react"
-import { isExport } from "./client-utils"
+import { isExport } from "./client-utils.js"
 import { useCallback } from "react"
 
 
