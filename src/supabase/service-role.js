@@ -1,9 +1,8 @@
-import { SupabaseClient } from '@supabase/supabase-js'
 import { createClient as createClientPrimitive } from '@supabase/supabase-js'
 
 /**
  * Create a Supabase client with service role key
- * @returns {SupabaseClient} Supabase service role client
+ * @returns {import("@supabase/supabase-js").SupabaseClient} Supabase service role client
  */
 export function createAdminClient() {
     const supabase = createClientPrimitive(

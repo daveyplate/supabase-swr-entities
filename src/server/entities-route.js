@@ -1,12 +1,10 @@
-import { SupabaseClient } from '@supabase/supabase-js'
-
 import { createEntity, deleteEntities, getEntities, loadEntitySchema, updateEntities } from './entity-helpers.js'
 import { authorizeParams, METHOD_MAP } from './route-helpers.js'
 
 /**
  * Entities route handler
  * @param {object} options Options
- * @param {SupabaseClient} options.supabase Supabase client
+ * @param {import("@supabase/supabase-js").SupabaseClient} options.supabase Supabase client
  * @param {("GET"|"POST"|"PATCH"|"DELETE")} options.method HTTP method
  * @param {object} [options.headers] HTTP headers
  * @param {object} options.query Request query parameters

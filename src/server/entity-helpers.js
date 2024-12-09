@@ -2,9 +2,6 @@ import translate from '@iamtraction/google-translate'
 import { promises as fs } from 'fs'
 import path from 'path'
 
-import { PostgrestFilterBuilder } from '@supabase/postgrest-js'
-import { PostgrestError } from '@supabase/supabase-js'
-
 import defaultSchema from '../schemas/default.schema.json'
 import usersSchema from '../schemas/users.schema.json'
 import { createAdminClient } from '../supabase/service-role.js'
@@ -102,7 +99,7 @@ export async function translateEntity(table, entity, lang) {
  * @param {string} id ID of the entity to get
  * @param {object} [params={}] Additional parameters to apply to the query
  * @param {string[]} [select] Values to select
- * @returns {Promise<{entity?: object, error?: PostgrestError}>} Entity from the table or error
+ * @returns {Promise<{entity?: object, error?: import("@supabase/supabase-js").PostgrestError}>} Entity from the table or error
  */
 export async function getEntity(table, id, params = {}, select = null) {
     const lang = params?.lang
@@ -128,7 +125,7 @@ export async function getEntity(table, id, params = {}, select = null) {
  * @param {string} table SQL table to get entities from
  * @param {{limit: number, offset: number, order: string, [key: string]: any}} [params={}] Parameters to apply to the query
  * @param {string[]} [select] Values to select
- * @returns {Promise<{entities?: object[], count?: number, limit?: number, offset?: number, error?: PostgrestError}>} Entities from the table or error
+ * @returns {Promise<{entities?: object[], count?: number, limit?: number, offset?: number, error?: import("@supabase/supabase-js").PostgrestError}>} Entities from the table or error
  */
 export async function getEntities(table, params = {}, select = null) {
     const lang = params?.lang
@@ -155,7 +152,7 @@ export async function getEntities(table, params = {}, select = null) {
  * @param {string} table SQL table to create entity in
  * @param {object} [values={}] Values to create the entity with
  * @param {string[]} [select] Fields to select
- * @returns {Promise<{entity?: object, error?: PostgrestError}>} Created entity or error
+ * @returns {Promise<{entity?: object, error?: import("@supabase/supabase-js").PostgrestError}>} Created entity or error
  */
 export async function createEntity(table, values = {}, select = null) {
     const { data, error } = await entityQuery(table, "upsert", values, {}, select)
@@ -214,7 +211,7 @@ async function sendRealtime(table, event, payload) {
  * @param {object} [values={}] Values to update the entity with
  * @param {object} [params={}] Parameters to apply to the update query
  * @param {string[]} [select] Fields to select
- * @returns {Promise<{entity?: object, error?: PostgrestError}>} Updated entity or error
+ * @returns {Promise<{entity?: object, error?: import("@supabase/supabase-js").PostgrestError}>} Updated entity or error
  */
 export const updateEntity = async (table, id, values = {}, params = {}, select = null) => {
     const { data, error } = await entityQuery(table, "update", values, { id, ...params }, select)
@@ -236,7 +233,7 @@ export const updateEntity = async (table, id, values = {}, params = {}, select =
  * @param {string} table SQL table to update entities in
  * @param {object} [values={}] Values to update the entities with
  * @param {object} [params={}] Parameters to apply to the update query
- * @returns {Promise<{entities?: boolean, error?: PostgrestError}>}  Updated entities or error
+ * @returns {Promise<{entities?: boolean, error?: import("@supabase/supabase-js").PostgrestError}>}  Updated entities or error
  */
 export async function updateEntities(table, values = {}, params = {}) {
     const { data: entities, error } = await entityQuery(table, "update", values, params)
@@ -258,7 +255,7 @@ export async function updateEntities(table, values = {}, params = {}) {
  * @param {string} table SQL table to delete entity from
  * @param {string} id ID of the entity to delete
  * @param {object} [params={}] Parameters to apply to the delete query
- * @returns {Promise<{entity?: object, error?: PostgrestError}>} Success status or error
+ * @returns {Promise<{entity?: object, error?: import("@supabase/supabase-js").PostgrestError}>} Success status or error
  */
 export async function deleteEntity(table, id, params = {}) {
     const { data, error } = await entityQuery(table, "delete", null, { id, ...params })
@@ -279,7 +276,7 @@ export async function deleteEntity(table, id, params = {}) {
  * Delete entities from a SQL table
  * @param {string} table SQL table to delete entity from
  * @param {object} [params={}] Parameters to apply to the delete query
- * @returns {Promise<{entities?: object[], error?: PostgrestError}>} Success status or error
+ * @returns {Promise<{entities?: object[], error?: import("@supabase/supabase-js").PostgrestError}>} Success status or error
  */
 export async function deleteEntities(table, params = {}) {
     const { data: entities, error } = await entityQuery(table, "delete", null, params)
@@ -304,7 +301,7 @@ export async function deleteEntities(table, params = {}) {
  * @param {object} values Values to use in the query
  * @param {object} params Parameters to apply to the query
  * @param {string[]} select Fields to select
- * @returns {PostgrestFilterBuilder} Query for the SQL table
+ * @returns {import("@supabase/postgrest-js").PostgrestFilterBuilder} Query for the SQL table
  */
 export async function entityQuery(table, method, values, params, select) {
     delete params?.lang

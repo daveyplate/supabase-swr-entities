@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useCallback } from "react"
-import { SWRResponse, SWRConfiguration } from "swr"
-import { SWRInfiniteResponse } from "swr/infinite"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
@@ -14,7 +12,7 @@ import { useCache, useInfiniteCache } from "./use-cache-hooks.js"
  * @property {object} entity - The entity
  * @property {(fields: object) => Promise<{error: Error, entity: object}>} updateEntity - The function to update the entity
  * @property {() => Promise<{error: Error}>} deleteEntity - The function to delete the entity
- * @typedef {SWRResponse & EntityResponseType} EntityResponse
+ * @typedef {import("swr").SWRResponse & EntityResponseType} EntityResponse
  */
 
 /**
@@ -22,7 +20,7 @@ import { useCache, useInfiniteCache } from "./use-cache-hooks.js"
  * @param {string} table - The table name
  * @param {string} id - The entity ID
  * @param {object} [params] - The query parameters
- * @param {SWRConfiguration} [swrConfig] - The SWR config
+ * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
  * @returns {EntityResponse} The entity and functions to update and delete it
  */
 export function useEntity(table, id, params = null, swrConfig = null) {
@@ -64,15 +62,15 @@ export function useEntity(table, id, params = null, swrConfig = null) {
  * @property {(id: string, fields: object) => Promise<{entity?: object, error: Error}>} updateEntity - The function to update an entity
  * @property {(id: string) => Promise<{error?: Error}>} deleteEntity - The function to delete an entity
  * @property {(entity: object) => void} mutateEntity - The function to mutate an entity
- * @typedef {SWRResponse & EntitiesResponseType & PeersResult} EntitiesResponse
- * @typedef {SWRInfiniteResponse & EntitiesResponseType & PeersResult} InfiniteEntitiesResponse
+ * @typedef {import("swr").SWRResponse & EntitiesResponseType & PeersResult} EntitiesResponse
+ * @typedef {import("swr/infinite").SWRInfiniteResponse & EntitiesResponseType & PeersResult} InfiniteEntitiesResponse
  */
 
 /**
  * Hook for fetching entities
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
- * @param {SWRConfiguration} [swrConfig] - The SWR config
+ * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
  * @param {object} [realtimeOptions] - The Realtime options
  * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
  * @param {string} [realtimeOptions.provider] - The Realtime provider
@@ -294,7 +292,7 @@ export function useEntities(table, params = null, swrConfig = null, realtimeOpti
  * Hook for fetching entities with infinite scrolling support
  * @param {string} table - The table name
  * @param {object} [params] - The query parameters
- * @param {SWRConfiguration} [swrConfig] - The SWR config
+ * @param {import("swr").SWRConfiguration} [swrConfig] - The SWR config
  * @param {object} [realtimeOptions] - The Realtime options
  * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
  * @param {string} [realtimeOptions.provider] - The Realtime provider
