@@ -6,11 +6,11 @@
   "type": "module",
   "exports": {
     "./client": {
-      "default": "./src/index.js",
+      "import": "./src/index.js",
       "types": "./dist/index.d.ts"
     },
     "./server": {
-      "default": "./src/server.js",
+      "import": "./src/server.js",
       "types": "./dist/server.d.ts"
     }
   },
