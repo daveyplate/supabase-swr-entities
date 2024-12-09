@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
-import Peer, { DataConnection } from "peerjs"
+import Peer from "peerjs"
 import { v4 } from "uuid"
 
 import { useEntities } from "./use-entity-hooks.js"
@@ -7,10 +7,10 @@ import { useEntities } from "./use-entity-hooks.js"
 /**
  * @typedef {Object} PeersResult
  * @property {any[]} peers - The peers
- * @property {(data: any, connections: DataConnection[]?) => void} sendData - Send data to connections
- * @property {DataConnection[]} connections - The connections
+ * @property {(data: any, connections: import("peerjs").DataConnection[]?) => void} sendData - Send data to connections
+ * @property {import("peerjs").DataConnection[]} connections - The connections
  * @property {(userId: string) => boolean} isOnline - Check if a user is online
- * @property {(connection: DataConnection) => any} getPeer - Get the peer for a connection
+ * @property {(connection: import("peerjs").DataConnection) => any} getPeer - Get the peer for a connection
  * @property {(userId: string) => DataConnection} getConnection - Get the connection for a user
  */
 
