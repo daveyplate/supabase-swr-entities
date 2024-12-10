@@ -1,7 +1,7 @@
 import { AuthError, PostgrestError, SupabaseClient, User } from '@supabase/supabase-js'
-import { createAdminClient } from '../supabase/service-role.js'
+import { createAdminClient } from '../supabase/service-role'
 import { IncomingHttpHeaders } from 'http'
-import { HTTP_METHOD } from 'next/dist/server/web/http.js'
+import { HTTP_METHOD } from 'next/dist/server/web/http'
 
 export const METHOD_MAP: Record<HTTP_METHOD, string> = {
     GET: "select",

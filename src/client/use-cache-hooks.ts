@@ -1,7 +1,7 @@
 import { useCallback } from "react"
 import useSWR, { SWRConfiguration } from "swr"
 import useSWRInfinite, { SWRInfiniteKeyLoader } from 'swr/infinite'
-import { useAPI } from "./api-methods.js"
+import { useAPI } from "./api-methods"
 
 /**
  * Wraps useSWR with custom fetcher and getKey

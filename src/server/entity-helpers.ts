@@ -4,8 +4,8 @@ import path from 'path'
 
 import defaultSchema from '../schemas/default.schema.json'
 import usersSchema from '../schemas/users.schema.json'
-import { createAdminClient } from '../supabase/service-role.js'
-import { createNotification } from './notifications.js'
+import { createAdminClient } from '../supabase/service-role'
+import { createNotification } from './notifications'
 import { PostgrestError, PostgrestSingleResponse } from '@supabase/supabase-js'
 
 /**

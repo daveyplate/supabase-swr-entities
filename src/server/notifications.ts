@@ -1,4 +1,4 @@
-import { createEntity, getEntity, loadEntitySchema } from "./entity-helpers.js"
+import { createEntity, getEntity, loadEntitySchema } from "./entity-helpers"
 
 /**
  * Safely retrieves a nested value from an object given a path string like 'article.user_id'.

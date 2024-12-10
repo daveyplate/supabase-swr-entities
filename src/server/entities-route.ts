@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import { createEntity, deleteEntities, getEntities, loadEntitySchema, updateEntities } from './entity-helpers.js'
-import { authorizeParams, METHOD_MAP } from './route-helpers.js'
-import { HTTP_METHOD } from 'next/dist/server/web/http.js'
+import { createEntity, deleteEntities, getEntities, loadEntitySchema, updateEntities } from './entity-helpers'
+import { authorizeParams, METHOD_MAP } from './route-helpers'
+import { HTTP_METHOD } from 'next/dist/server/web/http'
 import { IncomingHttpHeaders } from 'http'
 
 interface EntitiesRouteOptions {

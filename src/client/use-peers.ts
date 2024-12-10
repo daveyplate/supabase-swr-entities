@@ -1,34 +1,39 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
-import Peer from "peerjs"
+import Peer, { DataConnection } from "peerjs"
 import { v4 } from "uuid"
 
-import { useEntities } from "./use-entity-hooks.js"
+import { useEntities } from "./use-entity-hooks"
 
-/**
- * @typedef {Object} PeersResult
- * @property {any[]} peers - The peers
- * @property {(data: any, connections: import("peerjs").DataConnection[]?) => void} sendData - Send data to connections
- * @property {import("peerjs").DataConnection[]} connections - The connections
- * @property {(userId: string) => boolean} isOnline - Check if a user is online
- * @property {(connection: import("peerjs").DataConnection) => any} getPeer - Get the peer for a connection
- * @property {(userId: string) => DataConnection} getConnection - Get the connection for a user
- */
+export interface PeersResult {
+    peers: any[]
+    sendData: (data: any, connections?: DataConnection[]) => void
+    connections: import("peerjs").DataConnection[]
+    isOnline: (userId: string) => boolean
+    getPeer: (connection: import("peerjs").DataConnection) => any
+    getConnectionsForUser: (userId: string) => DataConnection[]
+}
+
+interface UsePeersOptions {
+    enabled?: boolean
+    onData?: (data: any, connection: DataConnection, peer: any) => void
+    room?: string
+    allowedUsers?: string[]
+}
 
 /**
  * Peer Connections hook
- * @param {Object} props - The hook props
- * @param {boolean} [props.enabled=true] - Is the hook enabled
- * @param {(data: any, connection: import("peerjs").DataConnection, peer: Peer) => void} [props.onData=null] - The data handler
- * @param {string} [props.room=null] - The room to connect to
- * @param {string[]} [props.allowedUsers=["*"]] - The users allowed to send data to
- * @returns {PeersResult} The hook result
+ * @param {UsePeersOptions} options - The hook options
+ * @param {boolean} [options.enabled=true] - Is the hook enabled
+ * @param {(data: any, connection: import("peerjs").DataConnection, peer: Peer) => void} [options.onData=null] - The data handler
+ * @param {string} [options.room=null] - The room to connect to
+ * @param {string[]} [options.allowedUsers=["*"]] - The users allowed to send data to
  */
 export function usePeers({
     enabled = true,
-    onData = null,
-    room = null,
+    onData,
+    room,
     allowedUsers = ["*"]
-}) {
+}: UsePeersOptions): PeersResult {
     const [_, forceUpdate] = useReducer(x => x + 1, 0)
 
     const {
@@ -37,20 +42,15 @@ export function usePeers({
         updateEntity: updatePeer,
         deleteEntity: deletePeer,
         mutate: mutatePeers,
-    } = useEntities(enabled && 'peers', { room })
+    } = useEntities(enabled ? 'peers' : null, { room })
 
-    const [peer, setPeer] = useState(null)
-    const connectionsRef = useRef([])
-    const connectionAttempts = useRef([])
-    const [dataQueue, setDataQueue] = useState([])
-    const messageHistory = useRef([])
+    const [peer, setPeer] = useState<Peer>()
+    const connectionsRef = useRef<DataConnection[]>([])
+    const connectionAttempts = useRef<string[]>([])
+    const [dataQueue, setDataQueue] = useState<Record<string, any>[]>([])
+    const messageHistory = useRef<any[]>([])
 
-    /**
-     * Get the peer for a connection
-     * @param {import("peerjs").DataConnection} connection - The connection
-     * @returns {any} The peer
-     */
-    const getPeer = useCallback((connection) => {
+    const getPeer = useCallback((connection: DataConnection) => {
         if (!enabled) return
 
         return peers?.find((peer) => peer.id == connection?.peer)
@@ -60,7 +60,7 @@ export function usePeers({
     useEffect(() => {
         if (!peers) return
 
-        const newDataQueue = []
+        const newDataQueue: Record<string, any>[] = []
 
         dataQueue.forEach(({ data, connection }) => {
             const peer = getPeer(connection)
@@ -71,7 +71,7 @@ export function usePeers({
                 return connection.close()
             }
 
-            onData(data, connection, peer)
+            onData && onData(data, connection, peer)
         })
 
         if (newDataQueue.length != dataQueue.length) {
@@ -79,12 +79,7 @@ export function usePeers({
         }
     }, [peers, getPeer, dataQueue, JSON.stringify(allowedUsers)])
 
-    /**
-     * Prepare connection handlers
-     * @param {import("peerjs").DataConnection} connection - The connection
-     * @param {boolean} [inbound=false] - Is the connection inbound
-     */
-    const handleConnection = (connection, inbound = false) => {
+    const handleConnection = (connection: DataConnection, inbound = false) => {
         connection?.removeAllListeners()
 
         // Handle incoming data and store it in the data queue
@@ -195,8 +190,8 @@ export function usePeers({
         const interval = setInterval(keepPeerCurrent, 60000)
 
         // Handle inbound connections
-        const inboundConnection = (conn) => {
-            handleConnection(conn, true)
+        const inboundConnection = (connection: DataConnection) => {
+            handleConnection(connection, true)
         }
 
         peer.on("connection", inboundConnection)
@@ -224,11 +219,11 @@ export function usePeers({
     }, [enabled, room, peers, peer, onData, connectionsRef.current, JSON.stringify(allowedUsers)])
 
     /**
-     * Send data to all connections
+     * Send data to connections
      * @param {any} data - The data to send
      * @param {import("peerjs").DataConnection[]} [connections] - Limit the connections to send to
      */
-    const sendData = useCallback((data, connections = null) => {
+    const sendData = useCallback((data: any, connections?: DataConnection[]) => {
         if (!enabled) return
 
         // Store the data in messageHistory for 10 seconds so we can send it on connection
@@ -248,11 +243,7 @@ export function usePeers({
         })
     }, [enabled, getPeer, connectionsRef.current, JSON.stringify(allowedUsers)])
 
-    /**
-     * Send message history to a connection
-     * @param {import("peerjs").DataConnection} connection - The connection
-     */
-    const sendMessageHistory = useCallback((connection) => {
+    const sendMessageHistory = useCallback((connection: DataConnection) => {
         if (!enabled) return
 
         const connectionPeer = getPeer(connection)
@@ -264,18 +255,14 @@ export function usePeers({
         }
     }, [enabled, JSON.stringify(allowedUsers), getPeer])
 
-    /**
-     * Get the connections for a user ID
-     * @param {string} userId - The user ID
-     * @returns {import("peerjs").DataConnection} The connection
-     */
-    const getConnectionsForUser = useCallback((userId) => {
-        if (!enabled) return
+
+    const getConnectionsForUser = useCallback((userId: string) => {
+        if (!enabled) return []
 
         return connectionsRef.current.filter((connection) => {
             const connectionPeer = getPeer(connection)
             return connectionPeer?.user_id == userId
-        })
+        }) || []
     }, [enabled, getPeer, connectionsRef.current])
 
     /** 
@@ -283,7 +270,7 @@ export function usePeers({
      * @param {string} userId - The user ID
      * @returns {boolean} Is the user online
      */
-    const isOnline = useCallback((userId) => !!getConnectionsForUser(userId)?.length, [getConnectionsForUser])
+    const isOnline = useCallback((userId: string) => !!getConnectionsForUser(userId)?.length, [getConnectionsForUser])
 
     return { peers, sendData, connections: connectionsRef.current, isOnline, getPeer, getConnectionsForUser }
 }
