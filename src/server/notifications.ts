@@ -4,9 +4,8 @@ import { createEntity, getEntity, loadEntitySchema } from "./entity-helpers.js"
  * Safely retrieves a nested value from an object given a path string like 'article.user_id'.
  * @param {object} obj - The object to retrieve a value from.
  * @param {string} path - The path string, e.g., 'article.user_id'.
- * @returns {any} - The value at the path, or undefined if not found.
  */
-function getNestedValue(obj, path) {
+function getNestedValue(obj: Record<string, any>, path: string): any {
     return path?.split('.').reduce((acc, key) => acc && acc[key], obj)
 }
 
@@ -14,15 +13,14 @@ function getNestedValue(obj, path) {
  * Replaces placeholders in the form of {{variable}} with corresponding values from entity.
  * @param {string} template - The string template with placeholders.
  * @param {object} entity - An object containing key-value pairs to replace placeholders.
- * @returns {string} The template string with placeholders replaced by entity values.
  */
-function replaceBrackets(template, entity) {
+function replaceBrackets(template: string, entity: Record<string, any>) {
     return template?.replace(/{{(\w+(\.\w+)*)}}/g, (match, key) => {
         return getNestedValue(entity, key) || match
     })
 }
 
-export async function createNotification(table, method, entity) {
+export async function createNotification(table: string, method: string, entity: Record<string, any>) {
     const { entitySchema: { notifications, notificationTemplate } } = await loadEntitySchema(table)
     if (!notifications) return
 
@@ -53,8 +51,6 @@ export async function createNotification(table, method, entity) {
             urlAs: replaceBrackets(notificationTemplate.secondaryAction.urlAs, entity),
         },
     }
-
-    console.log(notification)
 
     // Check the user metadata to see if notifications are enabled
     const { entity: metadata } = await getEntity('metadata', notification.user_id)

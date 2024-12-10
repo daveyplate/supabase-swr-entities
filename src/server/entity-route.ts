@@ -1,19 +1,18 @@
+import { SupabaseClient } from '@supabase/supabase-js'
 import { getEntity, updateEntity, deleteEntity, loadEntitySchema } from './entity-helpers.js'
 import { authorizeParams, METHOD_MAP } from './route-helpers.js'
+import { HTTP_METHOD } from 'next/dist/server/web/http.js'
+import { IncomingHttpHeaders } from 'http'
 
-/**
- * Entity route handler
- * @param {object} options Options
- * @param {import("@supabase/supabase-js").SupabaseClient} options.supabase Supabase client
- * @param {("GET"|"POST"|"PATCH"|"DELETE")} options.method HTTP method
- * @param {object} [options.headers] HTTP headers
- * @param {object} options.query Request query parameters
- * @param {object} [options.body] Request body
- * @returns {Promise<{status: number, body: {}}>} Response status and body
- */
-export async function entityRoute({ supabase, method, headers, query, body }) {
-    method = method.toUpperCase()
+interface EntityRouteOptions {
+    supabase: SupabaseClient
+    method: HTTP_METHOD
+    headers: IncomingHttpHeaders
+    query: Record<string, any>
+    body?: Record<string, any>
+}
 
+export async function entityRoute({ supabase, method, headers, query, body }: EntityRouteOptions) {
     // Determine the table and load the schema
     let { entities, entity_id, admin } = query
     const table = entities.replace(/-/g, '_')
@@ -22,7 +21,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
     if (error) return { status: 404, body: { error } }
 
     // Determine allowed methods
-    const allowMethod = entitySchema.allowMethods.find((allowMethod) => allowMethod == METHOD_MAP[method] || allowMethod == '*')
+    const allowMethod = entitySchema.allowMethods.find((allowMethod: string) => allowMethod == METHOD_MAP[method] || allowMethod == '*')
     if (!allowMethod) return { status: 405, body: { error: { message: 'Method Not Allowed' } } }
 
     // Build query parameters
@@ -32,7 +31,7 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
     delete params.admin
 
     // Authorize the request
-    const authorize = entitySchema.authMethods.find((authMethod) => authMethod == METHOD_MAP[method] || authMethod == '*')
+    const authorize = entitySchema.authMethods.find((authMethod: string) => authMethod == METHOD_MAP[method] || authMethod == '*')
 
     if (authorize || admin || (entitySchema.hasMe && entity_id == 'me')) {
         const { error } = await authorizeParams(supabase, method, headers, params, entitySchema, admin)
@@ -70,16 +69,16 @@ export async function entityRoute({ supabase, method, headers, query, body }) {
 
         return { status: 200, body: entity }
     } else if (method == 'DELETE') {
-        const { success, error } = await deleteEntity(table, entity_id, params)
+        const { entity, error } = await deleteEntity(table, entity_id, params)
         if (error) return { status: 500, body: { error } }
 
-        return { status: 200, body: { success } }
+        return { status: 200, body: entity }
     }
 
     return { status: 405, body: { error: { message: 'Method Not Allowed' } } }
 }
 
-function isValidUUID(uuid) {
+function isValidUUID(uuid: string) {
     const regex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89ABab][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
     return regex.test(uuid)
 }

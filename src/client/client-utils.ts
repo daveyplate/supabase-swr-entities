@@ -3,19 +3,11 @@ import { useSWRConfig } from "swr"
 
 /**
  * Get the locale value from the internationalized data.
- * @param {object} obj - The internationalized data.
- * @param {string} locale - The locale.
- * @param {string} defaultLocale - The default locale.
- * @returns {string} The localized value.
  */
-export function getLocaleValue(obj, locale, defaultLocale) {
+export function getLocaleValue(obj: Record<string, any>, locale: string, defaultLocale: string): string {
     return obj?.[locale] || obj?.[defaultLocale] || obj?.[Object.keys(obj)[0]]
 }
 
-/** 
- * Hook for clearing cache
- * @returns {() => void} Clears the cache
- */
 export function useClearCache() {
     const { cache } = useSWRConfig()
 
@@ -23,17 +15,13 @@ export function useClearCache() {
         for (let key of cache.keys()) cache.delete(key)
     }, [cache])
 
-    return clearCache
+    return { clearCache }
 }
 
 /**
- * Generate API path
- * @param {string} table - The table name
- * @param {string} id - The entity ID
- * @param {object} params - The query parameters
- * @returns {string} The API path
+ * Generate API path from table, id & params.
  */
-export function apiPath(table, id, params) {
+export function apiPath(table: string, id: string, params: Record<string, string>): string | null {
     if (!table) return null
 
     const route = table.replaceAll('_', '-')
@@ -52,8 +40,7 @@ export function apiPath(table, id, params) {
 }
 
 /**
- * Check if the app is being exported.
- * @returns {boolean} True if NEXT_PUBLIC_IS_EXPORT is "1" or NEXT_PUBLIC_IS_MOBILE is "true".
+ * process.env.NEXT_PUBLIC_IS_EXPORT == '1' || process.env.NEXT_PUBLIC_IS_MOBILE == 'true'
  */
 export function isExport() {
     return process.env.NEXT_PUBLIC_IS_EXPORT == '1' || process.env.NEXT_PUBLIC_IS_MOBILE == 'true'

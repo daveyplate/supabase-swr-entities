@@ -5,8 +5,8 @@
   "description": "An entity management library for Supabase and SWR",
   "type": "module",
   "exports": {
-    "./client": "./src/index",
-    "./server": "./src/server"
+    "./client": "./dist/index",
+    "./server": "./dist/server"
   },
   "typesVersions": {
     "*": {
@@ -23,8 +23,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "npx tsc",
-    "prepublishOnly": "npm run build"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "rm -rf dist && npm run build"
   },
   "keywords": [
     "supabase",
@@ -32,25 +33,32 @@
     "entity",
     "management"
   ],
-  "author": "LeakedDave",
+  "author": "daveycodez",
   "license": "ISC",
   "devDependencies": {
+    "@supabase/auth-helpers-react": "file:../daveyplate/node_modules/@supabase/auth-helpers-react",
+    "@types/react": "^19.0.1",
     "@types/uuid": "^10.0.0",
     "husky": "^9.1.6",
-    "typescript": "^5.6.2",
-    "@supabase/auth-helpers-react": "file:../daveyplate/node_modules/@supabase/auth-helpers-react",
+    "next": "file:../daveyplate/node_modules/next",
     "react": "file:../daveyplate/node_modules/react",
-    "swr": "file:../daveyplate/node_modules/swr"
+    "react-dom": "file:../daveyplate/node_modules/react-dom",
+    "swr": "file:../daveyplate/node_modules/swr",
+    "typescript": "^5.6.2"
   },
   "peerDependencies": {
+    "@iamtraction/google-translate": ">=2.0.0",
     "@supabase/auth-helpers-react": ">=0.5.0",
     "@supabase/postgrest-js": ">=1.16.0",
     "@supabase/supabase-js": ">=2.45.0",
+    "next": ">=14.0.0",
+    "peerjs": ">=1.5.4",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
     "swr": ">=2.2.0",
-    "uuid": ">=9.0.0",
-    "peerjs": ">=1.5.4",
-    "@iamtraction/google-translate": ">=2.0.0"
+    "uuid": ">=9.0.0"
+  },
+  "dependencies": {
+    "@types/node": "^22.10.1"
   }
 }
