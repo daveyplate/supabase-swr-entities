@@ -21,7 +21,7 @@ export function useClearCache() {
 /**
  * Generate API path from table, id & params.
  */
-export function apiPath(table: string | null, id?: string | null, params?: Record<string, string> | null) {
+export function apiPath(table?: string | null, id?: string | null, params?: Record<string, string> | null) {
     if (!table) return null
 
     const route = table.replaceAll('_', '-')

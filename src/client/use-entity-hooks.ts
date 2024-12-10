@@ -19,8 +19,8 @@ interface EntityResponse<T> extends SWRResponse {
  * Hook for fetching an entity by `id` or params
  */
 export function useEntity<T = Record<string, any>>(
-    table: string | null,
-    id: string | null,
+    table?: string | null,
+    id?: string | null,
     params?: Record<string, any> | null,
     swrConfig?: SWRConfiguration | null
 ): EntityResponse<T> {
@@ -93,7 +93,7 @@ interface RealtimeOptions {
  * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  */
 export function useEntities<T = Record<string, any>>(
-    table: string | null,
+    table?: string | null,
     params?: Record<string, any> | null,
     swrConfig?: SWRConfiguration | null,
     realtimeOptions?: RealtimeOptions | null
@@ -328,10 +328,10 @@ export function useEntities<T = Record<string, any>>(
  * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  */
 export function useInfiniteEntities<T = Record<string, any>>(
-    table: string,
-    params?: Record<string, any>,
-    swrConfig?: SWRConfiguration,
-    realtimeOptions?: RealtimeOptions
+    table?: string | null,
+    params?: Record<string, any> | null,
+    swrConfig?: SWRConfiguration | null,
+    realtimeOptions?: RealtimeOptions | null
 ): InfiniteEntitiesResponse<T> {
     const session = useSession()
     const supabase = useSupabaseClient()
@@ -423,7 +423,7 @@ export function useInfiniteEntities<T = Record<string, any>>(
 
     // Supabase Realtime
     useEffect(() => {
-        if (!realtimeOptions?.enabled) return
+        if (!realtimeOptions?.enabled || !room) return
         if (realtimeOptions?.provider != "supabase") return
 
         const channelA = supabase.channel(room, { config: { private: true } })

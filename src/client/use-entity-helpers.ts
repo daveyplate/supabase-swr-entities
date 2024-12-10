@@ -17,8 +17,8 @@ export function useCreateEntity() {
     const { onError } = swrConfig
 
     const createEntity = useCallback(async (
-        table: string | null,
-        entity: Record<string, any>,
+        table?: string | null,
+        entity?: Record<string, any>,
         params?: Record<string, any> | null,
         optimisticFields?: Record<string, any> | null
     ): Promise<{ entity?: Record<string, any>, error?: Error }> => {
@@ -61,12 +61,13 @@ export function useUpdateEntity() {
     const { onError } = swrConfig
 
     const updateEntity = useCallback(async (
-        table: string | null,
-        id: string | null,
-        fields: Record<string, any>,
+        table?: string | null,
+        id?: string | null,
+        fields?: Record<string, any>,
         params?: Record<string, any> | null
     ): Promise<{ entity?: Record<string, any>, error?: Error }> => {
         if (!table) return { error: new Error("Entity not loaded") }
+        if (!fields) return { error: new Error("No fields to update") }
 
         const updateParams = params && { ...params }
         delete updateParams?.offset
@@ -105,8 +106,8 @@ export function useDeleteEntity() {
     const { onError } = swrConfig
 
     const deleteEntity = useCallback(async (
-        table: string | null,
-        id: string | null,
+        table?: string | null,
+        id?: string | null,
         params?: Record<string, any> | null
     ): Promise<{ success?: boolean, error?: Error }> => {
         if (!table) return { error: new Error("Entity not loaded") }
@@ -230,8 +231,8 @@ export function useMutateEntity() {
     const session = useSession()
 
     const mutateEntity = useCallback((
-        table: string | null,
-        id: string | null,
+        table?: string | null,
+        id?: string | null,
         data?: any | null,
         params?: Record<string, any> | null,
         opts: Record<string, any> | boolean = false

@@ -15,8 +15,8 @@ export interface PeersResult {
 
 interface UsePeersOptions {
     enabled?: boolean
-    onData?: (data: any, connection: DataConnection, peer: any) => void
-    room?: string
+    onData?: (data: any, connection: DataConnection, peer: any) => void | null
+    room?: string | null
     allowedUsers?: string[]
 }
 
