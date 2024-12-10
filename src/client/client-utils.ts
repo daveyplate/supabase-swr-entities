@@ -4,7 +4,7 @@ import { useSWRConfig } from "swr"
 /**
  * Get the locale value from the internationalized data.
  */
-export function getLocaleValue(obj: Record<string, any> | null, locale: string, defaultLocale?: string | null): string {
+export function getLocaleValue(obj: any, locale: string, defaultLocale?: string | null): string {
     return obj?.[locale] || (defaultLocale ? obj?.[defaultLocale] : obj?.[Object.keys(obj)[0]])
 }
 

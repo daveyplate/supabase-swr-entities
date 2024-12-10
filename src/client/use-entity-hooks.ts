@@ -2,15 +2,15 @@ import { useEffect, useMemo, useCallback } from "react"
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { v4 } from "uuid"
 
-import { PeersResult, usePeers } from "./use-peers"
+import { usePeers } from "./use-peers"
 import { apiPath } from "./client-utils"
 import { useCreateEntity, useDeleteEntity, useMutateEntity, useUpdateEntity } from "./use-entity-helpers"
 import { useCache, useInfiniteCache } from "./use-cache-hooks"
 import { SWRConfiguration, SWRResponse } from "swr"
 import { SWRInfiniteResponse } from "swr/infinite"
 
-interface EntityResponse extends SWRResponse {
-    entity: Record<string, any>
+interface EntityResponse<T> extends SWRResponse {
+    entity: T
     updateEntity: (fields: Record<string, any>) => Promise<{ entity?: Record<string, any>, error?: Error }>
     deleteEntity: () => Promise<{ success?: boolean, error?: Error }>
 }
@@ -18,12 +18,12 @@ interface EntityResponse extends SWRResponse {
 /**
  * Hook for fetching an entity by `id` or params
  */
-export function useEntity(
+export function useEntity<T = Record<string, any>>(
     table: string | null,
     id: string | null,
     params?: Record<string, any> | null,
     swrConfig?: SWRConfiguration | null
-): EntityResponse {
+): EntityResponse<T> {
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
     const mutateEntity = useMutateEntity()
@@ -44,7 +44,7 @@ export function useEntity(
     }, [entity])
 
     return {
-        entity,
+        entity: entity as T,
         updateEntity: update,
         deleteEntity: doDelete,
         ...swr,
@@ -59,8 +59,8 @@ interface EntitiesData {
     has_more: boolean
 }
 
-interface SharedEntitiesResponse {
-    entities: Record<string, any>[]
+interface SharedEntitiesResponse<T> {
+    entities: T[]
     count: number
     limit: number
     offset: number
@@ -71,8 +71,8 @@ interface SharedEntitiesResponse {
     mutateEntity: (entity: object) => void
 }
 
-interface EntitiesResponse extends SharedEntitiesResponse, SWRResponse { }
-interface InfiniteEntitiesResponse extends SharedEntitiesResponse, SWRInfiniteResponse { }
+interface EntitiesResponse<T> extends SharedEntitiesResponse<T>, SWRResponse { }
+interface InfiniteEntitiesResponse<T> extends SharedEntitiesResponse<T>, SWRInfiniteResponse { }
 
 interface RealtimeOptions {
     enabled?: boolean
@@ -92,12 +92,12 @@ interface RealtimeOptions {
  * @param {string} [realtimeOptions.room] - The Realtime room
  * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  */
-export function useEntities(
+export function useEntities<T = Record<string, any>>(
     table: string | null,
     params?: Record<string, any> | null,
     swrConfig?: SWRConfiguration | null,
     realtimeOptions?: RealtimeOptions | null
-): EntitiesResponse {
+): EntitiesResponse<T> {
     const session = useSession()
     const supabase = useSupabaseClient()
     const createEntity = useCreateEntity()
@@ -305,7 +305,7 @@ export function useEntities(
     return {
         ...swr,
         ...peersResult,
-        entities,
+        entities: entities as T[],
         count,
         limit,
         offset,
@@ -327,12 +327,12 @@ export function useEntities(
  * @param {string} [realtimeOptions.room] - The Realtime room
  * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  */
-export function useInfiniteEntities(
+export function useInfiniteEntities<T = Record<string, any>>(
     table: string,
     params?: Record<string, any>,
     swrConfig?: SWRConfiguration,
     realtimeOptions?: RealtimeOptions
-): InfiniteEntitiesResponse {
+): InfiniteEntitiesResponse<T> {
     const session = useSession()
     const supabase = useSupabaseClient()
     const createEntity = useCreateEntity()
@@ -561,7 +561,7 @@ export function useInfiniteEntities(
     return {
         ...swr,
         ...peersResult,
-        entities,
+        entities: entities as T[],
         count,
         limit,
         offset,
