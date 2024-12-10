@@ -19,8 +19,8 @@ export function useCreateEntity() {
     const createEntity = useCallback(async (
         table: string | null,
         entity: Record<string, any>,
-        params?: Record<string, any>,
-        optimisticFields?: Record<string, any>
+        params?: Record<string, any> | null,
+        optimisticFields?: Record<string, any> | null
     ): Promise<{ entity?: Record<string, any>, error?: Error }> => {
         if (!table) return { error: new Error("Entity not loaded") }
 
@@ -64,7 +64,7 @@ export function useUpdateEntity() {
         table: string | null,
         id: string | null,
         fields: Record<string, any>,
-        params?: Record<string, any>
+        params?: Record<string, any> | null
     ): Promise<{ entity?: Record<string, any>, error?: Error }> => {
         if (!table) return { error: new Error("Entity not loaded") }
 
@@ -107,7 +107,7 @@ export function useDeleteEntity() {
     const deleteEntity = useCallback(async (
         table: string | null,
         id: string | null,
-        params?: Record<string, any>
+        params?: Record<string, any> | null
     ): Promise<{ success?: boolean, error?: Error }> => {
         if (!table) return { error: new Error("Entity not loaded") }
 

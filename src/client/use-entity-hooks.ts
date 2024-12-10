@@ -21,8 +21,8 @@ interface EntityResponse extends SWRResponse {
 export function useEntity(
     table: string | null,
     id: string | null,
-    params?: Record<string, any>,
-    swrConfig?: SWRConfiguration
+    params?: Record<string, any> | null,
+    swrConfig?: SWRConfiguration | null
 ): EntityResponse {
     const updateEntity = useUpdateEntity()
     const deleteEntity = useDeleteEntity()
@@ -75,10 +75,10 @@ interface EntitiesResponse extends SharedEntitiesResponse, SWRResponse { }
 interface InfiniteEntitiesResponse extends SharedEntitiesResponse, SWRInfiniteResponse { }
 
 interface RealtimeOptions {
-    enabled: boolean
-    provider: "peerjs" | "supabase"
+    enabled?: boolean
+    provider?: "peerjs" | "supabase"
     room?: string
-    listenOnly: boolean
+    listenOnly?: boolean
 }
 
 /**
@@ -89,14 +89,14 @@ interface RealtimeOptions {
  * @param {RealtimeOptions} [realtimeOptions] - The Realtime options
  * @param {boolean} [realtimeOptions.enabled] - Whether Realtime is enabled
  * @param {string} [realtimeOptions.provider] - The Realtime provider
- * @param {string?} [realtimeOptions.room] - The Realtime room
+ * @param {string} [realtimeOptions.room] - The Realtime room
  * @param {boolean} [realtimeOptions.listenOnly=false] - Whether to only listen for Realtime data
  */
 export function useEntities(
     table: string | null,
-    params?: Record<string, any>,
-    swrConfig?: SWRConfiguration,
-    realtimeOptions?: RealtimeOptions
+    params?: Record<string, any> | null,
+    swrConfig?: SWRConfiguration | null,
+    realtimeOptions?: RealtimeOptions | null
 ): EntitiesResponse {
     const session = useSession()
     const supabase = useSupabaseClient()

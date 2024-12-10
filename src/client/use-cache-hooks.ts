@@ -6,7 +6,7 @@ import { useAPI } from "./api-methods"
 /**
  * Wraps useSWR with custom fetcher and getKey
  */
-export function useInfiniteCache(url: string | null, config?: SWRConfiguration) {
+export function useInfiniteCache(url: string | null, config?: SWRConfiguration | null) {
     const { getAPI } = useAPI()
 
     const getKey: SWRInfiniteKeyLoader = useCallback((pageIndex: number, previousPageData: { data?: any; limit?: any }) => {
@@ -32,7 +32,7 @@ export function useInfiniteCache(url: string | null, config?: SWRConfiguration) 
     return swr
 }
 
-export function useCache(url: string | null, config?: SWRConfiguration) {
+export function useCache(url: string | null, config?: SWRConfiguration | null) {
     const { getAPI } = useAPI()
 
     const swr = useSWR(url, {
